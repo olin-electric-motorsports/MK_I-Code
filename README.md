@@ -14,3 +14,6 @@ Note that {name} should be the filename of the \*.c code you wish to flash witho
 ```
 $ sudo make FILE=blinky flash
 ```
+
+## TODO
+Make more nodes
