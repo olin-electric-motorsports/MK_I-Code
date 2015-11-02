@@ -22,30 +22,30 @@ Make more nodes
 *note: These nodes are not necessarily in order of importance*
 
 ###Crucial Nodes
-####Watchdog
+#####Watchdog
 
 Keep track of all nodes and error messages on the CAN line. Will initiate shutdown sequence if necessary, or light up the correct error lights.
 
-####Control Panel
+#####Control Panel
 
 Display all necessary information to the driver.
 
-####Emergency Buttons
+#####Emergency Buttons
 
 Keep track of Emergency button states. Will not necessarily act on Emergency button presses, as most of them will be analog. 
 
-####Insulation Modelling
+#####Insulation Modelling
 
 Ensure no short-circuits throughout all electrical wiring. 
 
-####BMS
+#####BMS
 
 Keep track of battery charge and ensure that the cells are not undervolted.
 
-####Motor Controller/Throttle
+#####Motor Controller/Throttle
 
 Give throttle control to the motor controller via CAN. Keep track of motor controller error codes and warnings.
 
 ###Extra Nodes
-####Telemetry
-####Real-time Telemetry w/ bluetooth
+#####Telemetry
+#####Real-time Telemetry w/ bluetooth
