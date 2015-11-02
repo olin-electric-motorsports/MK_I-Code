@@ -20,7 +20,8 @@ Make more nodes
 
 ## Nodes
 *note: These nodes are not necessarily in order of importance*
-(Crucial)
+
+###Crucial Nodes
 ####Watchdog
 
 Keep track of all nodes and error messages on the CAN line. Will initiate shutdown sequence if necessary, or light up the correct error lights.
@@ -45,6 +46,6 @@ Keep track of battery charge and ensure that the cells are not undervolted.
 
 Give throttle control to the motor controller via CAN. Keep track of motor controller error codes and warnings.
 
-(Extra)
+###Extra Nodes
 ####Telemetry
 ####Real-time Telemetry w/ bluetooth
