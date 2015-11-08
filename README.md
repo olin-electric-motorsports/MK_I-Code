@@ -46,6 +46,10 @@ Keep track of battery charge and ensure that the cells are not undervolted.
 
 Give throttle control to the motor controller via CAN. Keep track of motor controller error codes and warnings.
 
+##### Precharge Check Node
+
+Detects when the motor controller has finished precharging.
+
 ###Extra Nodes
 #####Telemetry
 #####Real-time Telemetry w/ bluetooth
