@@ -13,7 +13,7 @@
 
 #define MSG_demoMsg         ((uint8_t) 0xA)
 
-int init_CAN(uint8_t nodeID);
+int CAN_init(uint8_t nodeID);
 
 void read_msg(void);
 

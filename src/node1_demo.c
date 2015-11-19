@@ -25,7 +25,7 @@ ISR(INT1_vect){
     uint8_t msg[1];
     msg[0] = 0x08;
 
-    if( send_CAN_msg(NODE_demo2, MSG_demoMsg, msg, 1) < 0 ){
+    if( send_CAN_msg(0x20, MSG_demoMsg, msg, 1) < 0 ){
         PORTD |= _BV(PD7); // Turn on debug
     }
 
@@ -44,7 +44,7 @@ int main(void){
     DDRB &= ~(_BV(PB2));
 
     init_button();
-    init_CAN(NAME);
+    CAN_init(NAME);
 
     for(;;){
     }

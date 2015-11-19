@@ -1,6 +1,6 @@
 #include "api.h"
 
-int init_CAN(uint8_t nodeID){
+int CAN_init(uint8_t nodeID){
     // Global interrupts
     sei();
     
@@ -42,8 +42,6 @@ int init_CAN(uint8_t nodeID){
         CANSTMOB = 0x00;
     }
 
-    setup_mobs(nodeID);
-
     // Set up as Enabled mode
     //  instead of standby
     //  Necessary in order to get CAN
@@ -53,9 +51,19 @@ int init_CAN(uint8_t nodeID){
     return(0);
 }
 
-void setup_mobs(uint8_t nodeID){
-    // Set MOb1 for storing this nodes messages
-    CANPAGE = _BV(MOBNB0);
+int CAN_setup_mob_rec(uint8_t nodeID, uint8_t mob){
+    
+    // Make sure that the MOb is not busy, otherwise
+    // return an error
+    if( CANEN2 && 1 << mob ){
+        return -1;
+    }
+
+    // Select CAN mob based on input MOb
+    CANPAGE = (mob << MOBNB0);
+
+    // Clean CAN status for this MOb
+    CANSTMOB = 0x0;
 
     // MOb ID/IDmsk settings
     // set compatibility registers to 0, RTR/IDE-mask to 1
@@ -76,7 +84,9 @@ void setup_mobs(uint8_t nodeID){
     CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
 
     // enable reception, DLC8
-    CANCDMOB = _BV(CONMOB1) | (8 << DLC0);
+    CANCDMOB = _BV(CONMOB1);// | (8 << DLC0);
+
+    return 0;
 }
 
 void read_msg(void){
@@ -103,7 +113,7 @@ void read_msg(void){
 }
 
 
-// Sample call: sendCANmsg(NODE_watchdog,MSG_critical,data,dataLen);
+// Sample call: sendCANmsg(NODE_watchdog,MSG_critical,data,);
 int send_CAN_msg(uint8_t destID, uint8_t msgID, uint8_t msg[], uint8_t msgLength) {
     // use MOb 0 for sending and auto-increment bits in CAN page MOb register
     //CANPAGE = 0;
@@ -125,10 +135,19 @@ int send_CAN_msg(uint8_t destID, uint8_t msgID, uint8_t msg[], uint8_t msgLength
     CANSTMOB = 0x00;
 
     int i;
-    for (i = 0; i < msgLength; ++i) {
+    msgLength = 64;
+    //for (i = 0; i < msgLength; ++i) {
         // while data remains, write it into the data page register
-        CANMSG = msg[i];
+    //    msg[i] = 0;
+    //    CANMSG = msg[i];
+    //}
+    for ( i = 0; i < 16; i++){
+        CANMSG = 0x00;
     }
+    CANMSG = 0x1;
+    CANMSG = 0x0;
+    CANMSG = 0x1;
+
 
     // set compatibility registers, RTR bit, and reserved bit to 0
     CANIDT4 = 0;
@@ -136,7 +155,8 @@ int send_CAN_msg(uint8_t destID, uint8_t msgID, uint8_t msg[], uint8_t msgLength
     CANIDT3 = 0;
 
     // set ID tag registers
-    uint16_t idtag = ((destID & 0x1F) << 6) | (msgID & 0x3F);
+    uint16_t destID_2 = 0x200;
+    uint16_t idtag = ((destID_2 & 0x1F) << 6) | (msgID & 0x3F);
     CANIDT2 = ((idtag & 0x07) << 5); // bits 0-2 of idtag (0b0111)
     CANIDT1 = ((idtag & 0x7F8) >> 3); // bits 3-10 of idtag (0b11111111000)
 
@@ -151,7 +171,9 @@ int send_CAN_msg(uint8_t destID, uint8_t msgID, uint8_t msg[], uint8_t msgLength
     //    _delay_ms(5);
     //}
 
-    CANCDMOB &= ~(_BV(CONMOB0));
+    // Disable Transmission
+    //_delay_ms(500);
+    //CANCDMOB &= ~(_BV(CONMOB0));
     
     
     //if( (CANSTMOB & (1 << TXOK)) != (1 << TXOK)){
