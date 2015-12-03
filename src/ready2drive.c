@@ -1,6 +1,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-
+#include <util/delay.h>
 
 int main(void){
     //allows interruptions
@@ -9,20 +9,15 @@ int main(void){
     //Sets PE2 for output
     DDRE |= _BV(PE2);
 
-    //Sets PE1 for input
-    DDRE &= ~( _BV(PE1) );
+    EICRA |= (_BV(ISC00) | _BV(ISC01)); // INT0 - Pin 14
+    EIMSK |= _BV(INT0);
 
+    //don't do anything else, ever
+    while(1);
+}
 
-    //while there is no input
-    //pretty sure that boolean is super jank
-    while(~(PINE & _BV(PE1)));
-
-    //send 5V to output
-    //drives the r2d relay for 2 seconds, then turns off
+ISR(INT0_vect){
     PORTE |= _BV(PE2);
     _delay_ms(2000);
     PORTE &= ~(_BV(PE2));
-
-    //don't do anything else, every
-    while(1);
 }
