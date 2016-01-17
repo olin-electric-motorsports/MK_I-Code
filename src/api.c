@@ -1,9 +1,12 @@
 #include "api.h"
 
-int CAN_init(uint8_t nodeID){
+/* ************** *
+ * Functions      *
+ * ************** */
+int CAN_init(){
     // Global interrupts
     sei();
-    
+
     // Software reset; necessary for all CAN
     // stuff.
     CANGCON = _BV(SWRES);
@@ -24,8 +27,8 @@ int CAN_init(uint8_t nodeID){
 
     // enable interrupts on all MObs
     CANIE2 = (_BV(IEMOB0) | _BV(IEMOB1) |
-              _BV(IEMOB2) | _BV(IEMOB3) | 
-              _BV(IEMOB4) | _BV(IEMOB5) );
+            _BV(IEMOB2) | _BV(IEMOB3) | 
+            _BV(IEMOB4) | _BV(IEMOB5) );
 
 
     // All MObs come arbitrarily set up at first,
@@ -48,164 +51,135 @@ int CAN_init(uint8_t nodeID){
     //  communication
     CANGCON |= _BV( ENASTB );
 
+    // This will be an infinite loop
+    // if the CAN bus is stuck HIGH
+    while( !(CANGSTA & _BV(ENFG))){
+    }
+
+
     return(0);
 }
 
-int CAN_setup_mob_rec(uint8_t nodeID, uint8_t mob){
-    
-    // Make sure that the MOb is not busy, otherwise
-    // return an error
-    if( CANEN2 && 1 << mob ){
+/* ************** *
+ * MOb Type Setup *
+ * ************** */
+int CAN_Tx(uint8_t nodeID, uint8_t msg[], uint8_t msg_length){
+    // Select a MOb that is not being used
+    uint8_t mob=0;
+    for( mob = 0; mob < 5; mob++ ){
+        if( !(CANEN2 && 1 << mob) ){
+            break;
+        }
+    }
+    if( mob == 5 ){
         return -1;
     }
 
     // Select CAN mob based on input MOb
     CANPAGE = (mob << MOBNB0);
 
+    // Reset CANPAGE.INDXn
+    CANPAGE &= ~(_BV(INDX0) | _BV(INDX1) | _BV(INDX2));
+
     // Clean CAN status for this MOb
     CANSTMOB = 0x0;
 
-    // MOb ID/IDmsk settings
-    // set compatibility registers to 0, RTR/IDE-mask to 1
-    CANIDM4 = (_BV(RTRMSK) | _BV(IDEMSK)); // write to 0x00?
-    CANIDT4 = 0x00;
-
-    CANIDM3 = 0x00;
-    CANIDT3 = 0x00;
-
-    // accept all message IDs (bits 0-5)
-    // accept only this node's node ID (bits 6-10)
-    CANIDM2 = 0x00;
-    CANIDT2 = 0x00;
-
-    CANIDM1 = 0x00; //This node will recieve all messages
-    //CANIDM1 = 0xF8; // 0b11111000
-
+    // Set MOb ID
     CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
+    CANIDT2 = 0x00;
+    CANIDT3 = 0x00;
+    CANIDT4 = 0x00; // Data frame
 
-    // enable reception, DLC8
-    CANCDMOB = _BV(CONMOB1);// | (8 << DLC0);
 
-    return 0;
-}
+    // Set mask to 0x00
+    // Not used by Tx but good practice
+    CANIDM1 = 0x00; 
+    CANIDM2 = 0x00;
+    CANIDM3 = 0x00;
+    CANIDM4 = 0x00;
 
-void read_msg(void){
-    CANPAGE &= ~(_BV(AINC) | _BV(INDX2) | _BV(INDX1) | _BV(INDX0)); // set data page 0
-    uint8_t msgLength = (CANCDMOB & 0x0F); // last 4 bits are the DLC (0b1111)
-    uint8_t receivedMsg[msgLength];
-
-    // read the data into a local memory block
-    int i;
-    for (i = 0; i < msgLength; ++i) {
-        //while data remains, read it
-        receivedMsg[i] = CANMSG;
+    // Set the message
+    uint8_t i;
+    for(i=0; i < msg_length; i++){
+        CANMSG = msg[i];
     }
-
-    // take all of IDT1 and the first 3 bits of IDT2
-    uint16_t idtag = (_BV(CANIDT1) << 3) | ((_BV(CANIDT2) & 0xE0) >> 5);
-    uint8_t nodeID = (idtag & 0x07C0); // nodeID is bits 6-10 (0b11111000000)
-    uint8_t msgID = (idtag & 0x003F); // msgID is bits 0-5 (0b111111)
-
-    // externally-defined handler method
-    handle_CAN_msg(nodeID,msgID,receivedMsg,msgLength);
-
-    CANCDMOB |= _BV(CONMOB1); // set up MOb for reception again
-}
-
-
-// Sample call: sendCANmsg(NODE_watchdog,MSG_critical,data,);
-int send_CAN_msg(uint8_t destID, uint8_t msgID, uint8_t msg[], uint8_t msgLength) {
-    // use MOb 0 for sending and auto-increment bits in CAN page MOb register
-    //CANPAGE = 0;
-    //CANPAGE = _BV(MOBNB0);
     
-
-    //Wait for MOb1 to be free
-    // TODO: This is not good practice; take another look later
-   while(CANEN2 & _BV(ENMOB0)); // Stuck in infinite loop?
-    //if( CANEN2 & _BV(ENMOB0) ){
-    //    return -2;
-    //}
-    //
-    CANPAGE = 0x0; // Select MOb0
-
-    CANEN2 |= (1 << ENMOB0); //Claim MOb1
-
-    //Clear MOb status register
-    CANSTMOB = 0x00;
-
-    int i;
-    msgLength = 64;
-    //for (i = 0; i < msgLength; ++i) {
-        // while data remains, write it into the data page register
-    //    msg[i] = 0;
-    //    CANMSG = msg[i];
-    //}
-    for ( i = 0; i < 16; i++){
-        CANMSG = 0x00;
-    }
-    CANMSG = 0x1;
-    CANMSG = 0x0;
-    CANMSG = 0x1;
-
-
-    // set compatibility registers, RTR bit, and reserved bit to 0
-    CANIDT4 = 0;
-
-    CANIDT3 = 0;
-
-    // set ID tag registers
-    uint16_t destID_2 = 0x200;
-    uint16_t idtag = ((destID_2 & 0x1F) << 6) | (msgID & 0x3F);
-    CANIDT2 = ((idtag & 0x07) << 5); // bits 0-2 of idtag (0b0111)
-    CANIDT1 = ((idtag & 0x7F8) >> 3); // bits 3-10 of idtag (0b11111111000)
-
-    CANCDMOB = (_BV(CONMOB0) | msgLength); // set transmit bit and data length bits of MOb control register
-
-    //TODO: use interrupts for this instead of while loop
-    //wait for TXOK
-    //while((CANSTMOB & (1 << TXOK)) != (1 << TXOK));// & timeout--);
-    //uint8_t timeout = 0;
-    while( !(CANSTMOB & ( 1 << TXOK )));
-    //for( timeout = 0; timeout < 100; timeout++ ){
-    //    _delay_ms(5);
-    //}
-
-    // Disable Transmission
-    //_delay_ms(500);
-    //CANCDMOB &= ~(_BV(CONMOB0));
-    
-    
-    //if( (CANSTMOB & (1 << TXOK)) != (1 << TXOK)){
-    //    return -2;
-    //}
-
-    //Disable Transmission
+    // Send the message
+    //CANCDMOB = _BV(CONMOB0) | (msg_length << DLC0);
     CANCDMOB = 0x00;
-    //Clear TXOK flag (and all others)
-    CANSTMOB = 0x00;
+    CANCDMOB = (0x01 << CONMOB0) | (msg_length << DLC0);
+
+    // Check for errors 
+    // TODO: Set up interrupts for this shit
+    while( (CANSTMOB & _BV(TXOK)) == 0){
+        //if( CANSTMOB & _BV(BERR) != 0){
+        //if( CANSTMOB & _BV(SERR) != 0){
+        //if( CANSTMOB & _BV(CERR) != 0){
+        //if( CANSTMOB & _BV(FERR) != 0){
+        //if( CANSTMOB & _BV(AERR) != 0){
+        if( CANGSTA & _BV(TXBSY) != 0){
+            PORTC |= _BV(PC4);
+    
+        }else{
+            PORTC &= ~_BV(PC4);
+        }
+    }
+
+    // Should clear CANSTMOB once
+    // Tx job is done
+    CANSTMOB=0x00;
 
     return 0;
 }
 
 
-// handles the CAN interrupts depending on what kind of interrupt it is
-ISR(CAN_INT_vect) {
-    char cSREG = SREG; //store SREG
-
-    uint8_t mobIndex = (CANHPMOB & 0xF0) >> 4; // check which MOb received the interrupt
-    CANPAGE &= 0x0F; // clear out the top 4 bits (current MOb)
-    CANPAGE |= mobIndex << 4; // set the current MOb
-
-    if (CANSTMOB & _BV(RXOK)) {
-        CANSTMOB &= ~(_BV(RXOK)); // reset receive interrupt flag
-        read_msg();
-    } else if (CANSTMOB & _BV(TXOK)) {
-        CANSTMOB &= ~(_BV(TXOK)); // reset transmit interrupt flag
-    } else {
-        CANSTMOB &= 0; // unknown interrupt
+int CAN_Rx(uint8_t nodeID, uint8_t msg_length){
+    // Select a MOb that is not being used
+    uint8_t mob = 0;
+    for( mob = 0; mob < 5; mob++ ){
+        if( !(CANEN2 && 1 << mob) ){
+            break;
+        }
+    }
+    if( mob == 5 ){
+        return -1;
     }
 
-    read_msg();
-    SREG=cSREG; //restore SREG
+    // Select CAN mob based on input MOb
+    CANPAGE = (mob << MOBNB0);
+
+    // Reset CANPAGE.INDXn
+    CANPAGE &= ~(_BV(INDX0) | _BV(INDX1) | _BV(INDX2));
+
+    // Clean CAN status for this MOb
+    CANSTMOB = 0x0;
+
+    // Set MOb ID
+    CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
+    CANIDT2 = 0x00;
+    CANIDT3 = 0x00;
+    CANIDT4 = 0x00; // Data frame
+
+    // Set up MASK
+    CANIDM1 = 0x00; //This node will recieve all messages
+    CANIDM2 = 0x00;
+    CANIDM3 = 0x00;
+    //CANIDM4 = 0x00; // Ignore what is set above
+    CANIDM4 = (_BV(RTRMSK) | _BV(IDEMSK)); // Use what is set above
+
+    // Begin waiting for Rx
+    //CANCDMOB = _BV(CONMOB1) | (msg_length << DLC0);
+    CANCDMOB = 0x00;
+    CANCDMOB = (0x02 << CONMOB0) | (msg_length << DLC0);
+    
+
+    // Should be caught by an interrupt and handled there
+    /*
+    while( !(CANSTMOB & _BV(RXOK)) ){
+        PORTE |= _BV(PE1);
+    }
+    CANSTMOB=0x00;
+    */
+
+    return 0;
 }
