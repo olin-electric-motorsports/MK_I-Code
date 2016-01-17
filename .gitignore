@@ -34,3 +34,7 @@
 # Editing files
 *.swp
 *.~
+*.vim
+
+# No build files
+build/*
