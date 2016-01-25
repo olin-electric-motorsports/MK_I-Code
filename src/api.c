@@ -53,7 +53,7 @@ int CAN_init(){
 
     // This will be an infinite loop
     // if the CAN bus is stuck HIGH
-    while( !(CANGSTA & _BV(ENFG))){
+    while( (CANGSTA & ENFG) != _BV(ENFG)){
     }
 
 
