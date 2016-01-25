@@ -59,6 +59,7 @@ int main(void){
 
     PORTE |= _BV(PE1);
     CAN_init();
+    _delay_ms(500);
     PORTE &= ~_BV(PE1);
 
     for(;;){
