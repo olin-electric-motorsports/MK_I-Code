@@ -1,7 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-#include <time.h>
+#include <sys/time.h>
 
 clock_t start;
 //leave pins 6&7 for can
