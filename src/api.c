@@ -53,9 +53,10 @@ int CAN_init(){
 
     // This will be an infinite loop
     // if the CAN bus is stuck HIGH
+    /*
     while( (CANGSTA & ENFG) != _BV(ENFG)){
     }
-
+    */
 
     return(0);
 }
@@ -63,15 +64,20 @@ int CAN_init(){
 /* ************** *
  * MOb Type Setup *
  * ************** */
-int CAN_Tx(uint8_t nodeID, uint8_t msg[], uint8_t msg_length){
+int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length){
     // Select a MOb that is not being used
     uint8_t mob=0;
     for( mob = 0; mob < 5; mob++ ){
-        if( !(CANEN2 && 1 << mob) ){
+        if( (CANEN2 & _BV(mob)) == 0 ){
             break;
         }
     }
-    if( mob == 5 ){
+
+    if( mob > 4 ){
+        return -1;
+    }
+
+    if( (CANEN2 & _BV(mob)) == 1 ){
         return -1;
     }
 
@@ -85,7 +91,8 @@ int CAN_Tx(uint8_t nodeID, uint8_t msg[], uint8_t msg_length){
     CANSTMOB = 0x0;
 
     // Set MOb ID
-    CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
+    //CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
+    CANIDT1 = ident; // node ID
     CANIDT2 = 0x00;
     CANIDT3 = 0x00;
     CANIDT4 = 0x00; // Data frame
@@ -112,17 +119,18 @@ int CAN_Tx(uint8_t nodeID, uint8_t msg[], uint8_t msg_length){
     // Check for errors 
     // TODO: Set up interrupts for this shit
     while( (CANSTMOB & _BV(TXOK)) == 0){
+        //PORTB |= _BV(PB2);
         //if( CANSTMOB & _BV(BERR) != 0){
         //if( CANSTMOB & _BV(SERR) != 0){
         //if( CANSTMOB & _BV(CERR) != 0){
         //if( CANSTMOB & _BV(FERR) != 0){
         //if( CANSTMOB & _BV(AERR) != 0){
-        if( CANGSTA & _BV(TXBSY) != 0){
-            PORTC |= _BV(PC4);
+        //if( CANGSTA & _BV(TXBSY) != 0){
+            //PORTC |= _BV(PC4);
     
-        }else{
-            PORTC &= ~_BV(PC4);
-        }
+        //}else{
+            //PORTC &= ~_BV(PC4);
+        //}
     }
 
     // Should clear CANSTMOB once
@@ -133,7 +141,7 @@ int CAN_Tx(uint8_t nodeID, uint8_t msg[], uint8_t msg_length){
 }
 
 
-int CAN_Rx(uint8_t nodeID, uint8_t msg_length){
+int CAN_Rx(uint8_t ident, uint8_t msg_length, uint8_t mask){
     // Select a MOb that is not being used
     uint8_t mob = 0;
     for( mob = 0; mob < 5; mob++ ){
@@ -155,14 +163,15 @@ int CAN_Rx(uint8_t nodeID, uint8_t msg_length){
     CANSTMOB = 0x0;
 
     // Set MOb ID
-    CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
+    //CANIDT1 = ((nodeID & 0x1F) << 3); // node ID
+    CANIDT1 = ident;
     CANIDT2 = 0x00;
     CANIDT3 = 0x00;
     CANIDT4 = 0x00; // Data frame
 
     // Set up MASK
-    CANIDM1 = 0x00; //This node will recieve all messages
-    CANIDM2 = 0x00;
+    CANIDM1 = mask;  // CANIDM1 & 2 are the only ones that matter
+    CANIDM2 = 0x00;  // in 11 bit mode.
     CANIDM3 = 0x00;
     //CANIDM4 = 0x00; // Ignore what is set above
     CANIDM4 = (_BV(RTRMSK) | _BV(IDEMSK)); // Use what is set above

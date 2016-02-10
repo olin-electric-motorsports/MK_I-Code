@@ -7,18 +7,27 @@
 #include <stdlib.h>
 
 /* Node name definitions */
-#define send_demo          ((uint8_t) 0x0)
-#define receive_demo          ((uint8_t) 0x1)
+//#define send_demo          ((uint8_t) 0x0)
+//#define receive_demo          ((uint8_t) 0x1)
 
 /* Message IDs */
-#define MSG_demo         ((uint8_t) 0xA)
+#define IDT_demo         ((uint8_t) 0x00)
+#define IDT_demo_l       ((uint8_t) 0x01)
+
+#define IDT_watchdog     ((uint8_t) 0x01)
+#define IDT_watchdog_l   ((uint8_t) 0x01)
+
+
+/* Masks */
+#define IDM_global       ((uint8_t) 0x00)
+#define IDM_single       ((uint8_t) 0xff)
 
 /* Function Prototypes */
 int CAN_init( void );
 
-int CAN_Tx(uint8_t nodeID, uint8_t msg[], uint8_t msg_length);
+int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length);
 
-int CAN_Rx( uint8_t nodeID, uint8_t msg_length);
+int CAN_Rx( uint8_t ident, uint8_t msg_length, uint8_t mask);
 
 /* Notes on Usage:
  *      CAN_init MUST be called first. It sets up a variety of settings
@@ -30,13 +39,5 @@ int CAN_Rx( uint8_t nodeID, uint8_t msg_length);
  *              ISR(CAN_INT_vect)
  *      in your code.
  */
-
-//void CAN_read_msg(void);
-
-
-//int CAN_set_MOb_RX(uint8_t nodeID);
-//int CAN_set_MOb_TX(uint8_t nodeID);
-
-//void CAN_handle_msg(uint8_t destID, uint8_t msgID, uint8_t msg[], uint8_t msgLen);
 
 #endif
