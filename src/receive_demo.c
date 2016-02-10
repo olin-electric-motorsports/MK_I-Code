@@ -20,9 +20,10 @@ int main(void){
     sei();
     DDRE |= _BV(PE1);  // pin 10; Busy Light
     DDRC |= _BV(PC4);  // pin 17; Error Light
+    DDRB |= _BV(PB2);
 
     CAN_init();
-    CAN_Rx(send_demo, 1);
+    CAN_Rx(IDT_watchdog, IDT_watchdog_l, IDM_single);
 
     for(;;){
     }

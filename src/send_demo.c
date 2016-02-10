@@ -13,20 +13,32 @@ int init_button(void){
 }
 
 ISR(INT3_vect){
+    static uint8_t swap;
 
-    PORTE |= _BV(PE1);
+    //PORTE |= _BV(PE1);
 
     uint8_t tmp;
     uint8_t msg[1];
     msg[0] = 0x03;
-    CAN_Tx( send_demo, msg, 1 );
-    _delay_ms(500);
+    if( swap == 0 ){
+        tmp = CAN_Tx( IDT_demo, msg, IDT_demo_l );
+        swap++;
+    } else {
+        tmp = CAN_Tx( IDT_watchdog, msg, IDT_watchdog_l );
+        swap--;
+    }
 
-    PORTE &= ~_BV(PE1);
+    if( tmp < 0 ){
+        PORTB |= _BV(PB2);
+    }
+    //_delay_ms(500);
+
+    //PORTE &= ~_BV(PE1);
 }
 
 ISR(CAN_INT_vect){
-    PORTC |= _BV(PC4);
+    //PORTC |= _BV(PC4);
+    PORTB |= _BV(PB2);
 }
 
 
@@ -52,7 +64,7 @@ ISR(INT1_vect){
 int main(void){
     sei();
     DDRE |= _BV(PE1);  // pin 10; Busy Light
-    DDRC |= _BV(PC4);  // pin 17; Error Light
+    DDRB |= _BV(PB2);  // pin 16; Error Light
     DDRC &= ~_BV(PC0); // pin 30; Button input
 
     init_button();
@@ -61,6 +73,11 @@ int main(void){
     CAN_init();
     _delay_ms(500);
     PORTE &= ~_BV(PE1);
+
+    while( (CANGSTA & ENFG) != _BV(ENFG)){
+        //PORTB |= _BV(PB2);
+    }
+    //PORTB &= ~_BV(PB2);
 
     for(;;){
     }
