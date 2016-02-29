@@ -118,7 +118,7 @@ int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length){
 
     // Check for errors 
     // TODO: Set up interrupts for this shit
-    while( (CANSTMOB & _BV(TXOK)) == 0){
+    //while( (CANSTMOB & _BV(TXOK)) == 0){
         //PORTB |= _BV(PB2);
         //if( CANSTMOB & _BV(BERR) != 0){
         //if( CANSTMOB & _BV(SERR) != 0){
@@ -131,11 +131,12 @@ int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length){
         //}else{
             //PORTC &= ~_BV(PC4);
         //}
-    }
+    //}
 
     // Should clear CANSTMOB once
-    // Tx job is done
-    CANSTMOB=0x00;
+    // Tx job is done. --This is done
+    // on startup routine might not be needed
+    //CANSTMOB=0x00;
 
     return 0;
 }
