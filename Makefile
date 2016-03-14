@@ -13,7 +13,7 @@ OUTDIR=build
 INCDIR=$(SRCDIR)/inc
 
 CFLAGS+=-mmcu=$(MCU) -g -Os -Wall -Wunused -I$(INCDIR)/
-LDFLAGS = -mmcu=$(MCU) -Wl,-Map=$(OUTDIR)/$(TARGET).map
+LDFLAGS=-mmcu=$(MCU) -Wl,-Map=$(OUTDIR)/$(TARGET).map -lm
 AVRFLAGS=-p $(MCU) -v -c $(PROGRAMMER) -P $(PORT)
 
 INCS=$(wildcard $(INCDIR)/*.h)

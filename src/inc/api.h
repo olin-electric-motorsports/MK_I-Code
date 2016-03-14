@@ -17,6 +17,8 @@
 #define IDT_watchdog     ((uint8_t) 0x01)
 #define IDT_watchdog_l   ((uint8_t) 0x01)
 
+#define IDT_throttle     ((uint8_t) 0x02)
+#define IDT_throttle_l   ((uint8_t) 0x01)
 
 /* Masks */
 #define IDM_global       ((uint8_t) 0x00)
