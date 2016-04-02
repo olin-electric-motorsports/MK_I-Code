@@ -1,4 +1,4 @@
-#include "api.h"
+#include "can_api.h"
 
 /* ************** *
  * Functions      *
@@ -6,6 +6,7 @@
 int CAN_init(){
     // Global interrupts
     sei();
+
 
     // Software reset; necessary for all CAN
     // stuff.

@@ -1,5 +1,6 @@
 TARGET=$(FILE)
 
+LD_LIBRARY_PATH=lib
 CC=avr-gcc
 MCU=atmega16m1
 PROGRAMMER=avrispmkII
@@ -7,49 +8,56 @@ PORT=usb
 AVRDUDE=avrdude
 OBJCOPY=avr-objcopy
 
+
+##############
+#  Src Vars  #
+##############
 SRCDIR=src
+LIBDIR=lib
 OBJDIR=obj
-OUTDIR=build
-INCDIR=$(SRCDIR)/inc
+BUIDIR=build
 
+SRCLIBS=$(wildcard $(LIBDIR)/*.c)
+INTLIBS=$(wildcard $(LIBDIR)/*.h)
+OBJLIBS=$(patsubst $(LIBDIR)/%.c,$(LIBDIR)/%.o,$(SRCLIBS))
+
+SRCS=$(wildcard $(SRCDIR)/$(TARGET)/*.c)
+OBJS=$(patsubst $(SRCDIR)/$(TARGET)/%.c, $(OBJDIR)/%.o, $(SRCS))
+
+################
+#  Build Vars  #
+################
 CFLAGS+=-mmcu=$(MCU) -g -Os -Wall -Wunused -I$(INCDIR)/
-LDFLAGS=-mmcu=$(MCU) -Wl,-Map=$(OUTDIR)/$(TARGET).map -lm
+LDFLAGS=-mmcu=$(MCU) -Wl,-Map=$(BUIDIR)/$(TARGET).map -lm
 AVRFLAGS=-p $(MCU) -v -c $(PROGRAMMER) -P $(PORT)
-
-INCS=$(wildcard $(INCDIR)/*.h)
-SRCS=$(SRCDIR)/$(TARGET).c \
-	 $(patsubst $(INCDIR)/%.h,$(SRCDIR)/%.c,$(INCS))
-OBJS=$(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))\
-	 $(patsubst $(INCDIR)/%.c,$(OBJDIR)/%.o,$(INCS))
 
 #############
 #  Recipes  #
 #############
 
-all: $(OUTDIR)/$(TARGET).elf $(OUTDIR)/$(TARGET).hex $(OUTDIR)/$(TARGET).srec
+all: $(OBJLIBS) $(BUIDIR)/$(TARGET).elf $(BUIDIR)/$(TARGET).hex $(BUIDIR)/$(TARGET).srec
 
-$(OUTDIR)/%.srec: $(OUTDIR)/%.elf
-	$(OBJCOPY) -j .text -j .data -O srec $< $@
+$(LIBDIR)/%.o: $(LIBDIR)/%.c $(LIBDIR)/%.h
+	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(OUTDIR)/%.elf: $(OBJS)
+$(OBJDIR)/%.o: $(SRCDIR)/$(TARGET)/%.c 
+	$(CC) -c -o $@ $< $(CFLAGS) -L$(LIBDIR)
+
+$(BUIDIR)/%.elf: $(OBJS) $(OBJLIBS)
 	$(CC) $^ $(LDFLAGS) -o $@
 
-$(OUTDIR)/%.hex: $(OUTDIR)/%.elf
+$(BUIDIR)/%.srec: $(BUIDIR)/%.elf
+	$(OBJCOPY) -j .text -j .data -O srec $< $@
+
+$(BUIDIR)/%.hex: $(OUTDIR)/%.elf
 	$(OBJCOPY) -O ihex -R .eeprom $< $@
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(wildcard $(INCDIR)/*.h) Makefile
-	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(OBJS): | $(OBJDIR)
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
-	mkdir -p $(OUTDIR)
+	mkdir -p $(BUIDIR)
 
-flash: $(OUTDIR)/$(TARGET).hex
-	$(AVRDUDE) $(AVRFLAGS) -U flash:w:$<
-
-verify: $(OUTDIR)/$(TARGET).hex
-	$(AVRDUDE) $(AVRFLAGS) -U flash:v:$<
-
-clean:
-	rm -rf $(OUTDIR) $(OBJDIR)
+.PHONY: clean
+clean: 
+	rm -rf $(BUIDIR) $(OBJDIR) $(OBJLIBS)
