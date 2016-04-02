@@ -1,13 +1,11 @@
-TARGET=$(FILE)
+TARGET=$(build)
 
-LD_LIBRARY_PATH=lib
 CC=avr-gcc
 MCU=atmega16m1
 PROGRAMMER=avrispmkII
 PORT=usb
 AVRDUDE=avrdude
 OBJCOPY=avr-objcopy
-
 
 ##############
 #  Src Vars  #
@@ -27,7 +25,7 @@ OBJS=$(patsubst $(SRCDIR)/$(TARGET)/%.c, $(OBJDIR)/%.o, $(SRCS))
 ################
 #  Build Vars  #
 ################
-CFLAGS+=-mmcu=$(MCU) -g -Os -Wall -Wunused -I$(INCDIR)/
+CFLAGS+=-mmcu=$(MCU) -g -Os -Wall -Wunused -I$(LIBDIR)/
 LDFLAGS=-mmcu=$(MCU) -Wl,-Map=$(BUIDIR)/$(TARGET).map -lm
 AVRFLAGS=-p $(MCU) -v -c $(PROGRAMMER) -P $(PORT)
 
@@ -41,7 +39,7 @@ $(LIBDIR)/%.o: $(LIBDIR)/%.c $(LIBDIR)/%.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/$(TARGET)/%.c 
-	$(CC) -c -o $@ $< $(CFLAGS) -L$(LIBDIR)
+	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(BUIDIR)/%.elf: $(OBJS) $(OBJLIBS)
 	$(CC) $^ $(LDFLAGS) -o $@
@@ -49,7 +47,7 @@ $(BUIDIR)/%.elf: $(OBJS) $(OBJLIBS)
 $(BUIDIR)/%.srec: $(BUIDIR)/%.elf
 	$(OBJCOPY) -j .text -j .data -O srec $< $@
 
-$(BUIDIR)/%.hex: $(OUTDIR)/%.elf
+$(BUIDIR)/%.hex: $(BUIDIR)/%.elf
 	$(OBJCOPY) -O ihex -R .eeprom $< $@
 
 
@@ -57,6 +55,14 @@ $(OBJS): | $(OBJDIR)
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 	mkdir -p $(BUIDIR)
+
+.PHONY: flash
+flash: $(BUIDIR)/$(TARGET).hex
+	$(AVRDUDE) $(AVRFLAGS) -U flash:w:$<
+
+.PHONY: verify
+verify: $(BUIDIR)/$(TARGET).hex
+	$(AVRDUDE) $(AVRFLAGS) -U flash:v:$<
 
 .PHONY: clean
 clean: 
