@@ -25,11 +25,11 @@
 #define IDM_single       ((uint8_t) 0xff)
 
 /* Function Prototypes */
-int CAN_init( void );
+uint8_t CAN_init( uint8_t interrupt_depth );
 
-int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length);
+uint8_t CAN_Tx  ( uint8_t mob, uint8_t ident, uint8_t msg_length, uint8_t msg[]);
 
-int CAN_Rx( uint8_t ident, uint8_t msg_length, uint8_t mask);
+uint8_t CAN_Rx  ( uint8_t mob, uint8_t ident, uint8_t msg_length, uint8_t mask);
 
 /* Notes on Usage:
  *      CAN_init MUST be called first. It sets up a variety of settings
