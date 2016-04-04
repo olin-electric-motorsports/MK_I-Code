@@ -1,9 +1,9 @@
-#include "api.h"
+#include "can_api.h"
 
 /* ************** *
  * Functions      *
  * ************** */
-int CAN_init(){
+uint8_t CAN_init( uint8_t interrupt_depth ){
     // Global interrupts
     sei();
 
@@ -19,8 +19,19 @@ int CAN_init(){
     CANBT2 = 0x04; // Re-synch handling
     CANBT3 = 0x13; // Phase edge error handling
 
-    // enable interrupts: all, receive
-    CANGIE = (_BV(ENIT) | _BV(ENRX));
+    // Set up interrupts based on how much the user wants
+    switch( interrupt_depth ){
+        // Allow for fall-through with switch
+        case 2:
+            // Enable Bus off interrupt & buffer frame interrupt
+            CANGIE |= _BV(ENBOFF) | _BV(ENBX);
+        case 1:
+            // Enable general CAN interrupts & MOb interrupts
+            CANGIE |= _BV(ENERG) | _BV(ENERR);
+        default:
+            // Allow all interrupts & receive interrupts
+            CANGIE |= _BV(ENIT) | _BV(ENRX) | _BV(ENTX);
+    }
 
     // compatibility with future chips
     CANIE1 = 0;
@@ -51,34 +62,16 @@ int CAN_init(){
     //  communication
     CANGCON |= _BV( ENASTB );
 
-    // This will be an infinite loop
-    // if the CAN bus is stuck HIGH
-    /*
-    while( (CANGSTA & ENFG) != _BV(ENFG)){
-    }
-    */
-
     return(0);
 }
 
 /* ************** *
  * MOb Type Setup *
  * ************** */
-int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length){
-    // Select a MOb that is not being used
-    uint8_t mob=0;
-    for( mob = 0; mob < 5; mob++ ){
-        if( (CANEN2 & _BV(mob)) == 0 ){
-            break;
-        }
-    }
-
-    if( mob > 4 ){
-        return -1;
-    }
-
-    if( (CANEN2 & _BV(mob)) == 1 ){
-        return -1;
+uint8_t CAN_Tx  ( uint8_t mob, uint8_t ident, uint8_t msg_length, uint8_t msg[]){
+    // Check that the MOb is free
+    if( bit_is_set(CANEN2, mob) ){
+        return 1;
     }
 
     // Select CAN mob based on input MOb
@@ -142,23 +135,15 @@ int CAN_Tx(uint8_t ident, uint8_t msg[], uint8_t msg_length){
 }
 
 
-int CAN_Rx(uint8_t ident, uint8_t msg_length, uint8_t mask){
-    // Select a MOb that is not being used
-    uint8_t mob = 0;
-    for( mob = 0; mob < 5; mob++ ){
-        if( !(CANEN2 && 1 << mob) ){
-            break;
-        }
-    }
-    if( mob == 5 ){
-        return -1;
+uint8_t CAN_Rx(uint8_t mob, uint8_t ident, uint8_t msg_length, uint8_t mask){
+
+    // Check that the MOb is free
+    if( bit_is_set(CANEN2, mob) ){
+        return 1;
     }
 
     // Select CAN mob based on input MOb
     CANPAGE = (mob << MOBNB0);
-
-    // Reset CANPAGE.INDXn
-    CANPAGE &= ~(_BV(INDX0) | _BV(INDX1) | _BV(INDX2));
 
     // Clean CAN status for this MOb
     CANSTMOB = 0x0;
@@ -181,15 +166,6 @@ int CAN_Rx(uint8_t ident, uint8_t msg_length, uint8_t mask){
     //CANCDMOB = _BV(CONMOB1) | (msg_length << DLC0);
     CANCDMOB = 0x00;
     CANCDMOB = (0x02 << CONMOB0) | (msg_length << DLC0);
-    
-
-    // Should be caught by an interrupt and handled there
-    /*
-    while( !(CANSTMOB & _BV(RXOK)) ){
-        PORTE |= _BV(PE1);
-    }
-    CANSTMOB=0x00;
-    */
 
     return 0;
 }
