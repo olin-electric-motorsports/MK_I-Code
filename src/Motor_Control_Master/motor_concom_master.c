@@ -7,10 +7,11 @@
 int main(void){
 
     // Initialize CAN settings
-    int CAN_init( void );
+    CAN_init( 0 );
 
     // Set CAN message settings
-    uint8_t msg[ IDT_demo_l ];
+    uint8_t msg_low[ IDT_demo_l ];
+    uint8_t msg_high[ IDT_demo_l ];
     msg_high[0] = 0xFF; // Set CAN message to turn on LED
     msg_low[0] = 0x00; // Set CAN message to turn off LED
     
@@ -18,7 +19,7 @@ int main(void){
     DDRE |= _BV(PE1);
 
     // Declare variable for LED status
-    uint8_t LED_status;
+    uint8_t LED_status = 0;
 
     // Declare variable for analog data
     uint8_t analog_input;
@@ -45,14 +46,14 @@ int main(void){
         analog_input = ADC;
 
         // Set LED on when input is high, low when no
-        if(analog_input > 768 && LED_status == 0){
+        if(analog_input > 512 ){ // && LED_status == 0){
             LED_status = 1;
-            CAN_Tx( IDT_demo, msg_high, IDT_demo_l ); // send CAN message
             PORTE |= _BV(PE1);
+            CAN_Tx( 0, IDT_demo, IDT_demo_l, msg_high ); // send CAN message
         }
-        if(analog_input <= 768 && LED_status == 1){
+        if(analog_input <= 512 && LED_status == 1){
             LED_status = 0;
-            CAN_Tx( IDT_demo, msg_low, IDT_demo_l ); // send CAN message
+            CAN_Tx( 0, IDT_demo, IDT_demo_l, msg_low ); // send CAN message
             PORTE &= ~_BV(PE1);
         }
    }
