@@ -12,10 +12,10 @@ int main(void){
 
     for(;;){
         PORTB ^= _BV(PB6) | _BV(PB7) | _BV(PB0);
-        _delay_ms(260);
+        _delay_ms(1000);
         PORTB ^= _BV(PB5) | _BV(PB6);
-        _delay_ms(400);
+        _delay_ms(1000);
         PORTB ^= _BV(PB5) | _BV(PB7);
-        _delay_ms(200);
+        _delay_ms(1000);
     }
 }
