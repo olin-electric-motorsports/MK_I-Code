@@ -1,5 +1,6 @@
-#define F_CPU 1000000L
+#define F_CPU (1000000L)
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <util/delay.h>
 #include "can_api.h"
 
@@ -14,6 +15,9 @@ int main(void){
     uint8_t msg_high[ IDT_demo_l ];
     msg_high[0] = 0xFF; // Set CAN message to turn on LED
     msg_low[0] = 0x00; // Set CAN message to turn off LED
+
+    // Set threshold value for ADC reading
+    uint8_t threshold = 128;
     
     // Set pin 10 as output for testing LED
     DDRE |= _BV(PE1);
@@ -28,7 +32,10 @@ int main(void){
     ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
 
     // Set ADC to reference internal ground
-    ADCSRB |= _BV(AREFEN);
+    ADCSRB &= _BV(AREFEN);
+
+    // Set internal reference voltage as AVcc
+    ADMUX |= _BV(REFS0);
 
     // Set pin 14 as operational ADC
     ADMUX |= _BV(MUX0) | _BV(MUX1);
@@ -43,15 +50,15 @@ int main(void){
         while(bit_is_set(ADCSRA, ADSC));
        
         // Record input value
-        analog_input = ADC;
+        analog_input = (uint8_t)(ADC>>2);
 
         // Set LED on when input is high, low when no
-        if(analog_input > 512 ){ // && LED_status == 0){
+        if(analog_input > threshold && LED_status == 0){
             LED_status = 1;
             PORTE |= _BV(PE1);
             CAN_Tx( 0, IDT_demo, IDT_demo_l, msg_high ); // send CAN message
         }
-        if(analog_input <= 512 && LED_status == 1){
+        else if(analog_input <= threshold && LED_status == 1){
             LED_status = 0;
             CAN_Tx( 0, IDT_demo, IDT_demo_l, msg_low ); // send CAN message
             PORTE &= ~_BV(PE1);
