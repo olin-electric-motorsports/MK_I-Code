@@ -20,6 +20,9 @@
 #define IDT_throttle     ((uint8_t) 0x02)
 #define IDT_throttle_l   ((uint8_t) 0x01)
 
+#define IDT_BMS          ((uint8_t) 0x03)
+#define IDT_BMS_l        ((uint8_t) 0x01)
+
 /* Masks */
 #define IDM_global       ((uint8_t) 0x00)
 #define IDM_single       ((uint8_t) 0xff)
