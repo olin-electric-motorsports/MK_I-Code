@@ -2,21 +2,60 @@
 #include "can_api.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <util/delay.h>
 
-#define MAXV ((uint16_t) (4.22/5.0 * 0x3ff))
+#define MAXV ((uint16_t) (5.0/5.0 * 0x3ff))
 #define MINV ((uint16_t) (3.0/5.0 * 0x3ff))
 #define CAPTURE_STEP 1000
 
+// Global constants
 const uint8_t inputs[] = { 8, 5, 9, 3, 0, 2};
 const uint8_t temp[] = {10, 6, 7, 4};
 const uint8_t outputs[] = { _BV(PB3), _BV(PB4),
                             _BV(PC7), _BV(PD0),
                             _BV(PC0), _BV(PD1) };
 
-volatile uint32_t millis = 0;
-volatile uint8_t timer1_counter = 0;
-uint32_t capture_time = 0;
+// Global variable
+uint8_t shunt[] = { 0, 0, 0, 0, 0, 0 };
+
+
+uint16_t readADC( uint8_t channel ){
+    // Reset multiplexer bits
+    ADMUX &= ~(0x1F);
+
+    // Select correct channel
+    ADMUX |= inputs[channel];
+
+    // Que ADC reading & wait
+    ADCSRA |= _BV(ADSC);
+    while(bit_is_set(ADCSRA, ADSC));
+
+    // Return reading
+    return ADC;
+}
+
+
+void handleBoot( void ){
+    if( bit_is_set(MCUSR, WDRF) ){
+        // Handle Watchdog reset
+        MCUSR = 0x00;
+        wdt_disable();
+
+        PORTE |= _BV(PE1);
+
+        //TODO: Send a CAN message
+    } else {
+        // Flash all LEDs
+        PORTE |= _BV(PE1);
+        PORTD |= _BV(PD7);
+        PORTB |= _BV(PB1);
+        _delay_ms(100);
+        PORTB &= ~_BV(PB1);
+        PORTD &= ~_BV(PD7);
+        PORTE &= ~_BV(PE1);
+    }
+}
 
 
 void initIO( void ){
@@ -53,6 +92,7 @@ void initIO( void ){
     DDRB &= ~_BV(PB7); // Temp 4, ADC4
 }
 
+
 void initADC( void ){
     // Enable ADC
     ADCSRA |= _BV(ADEN);
@@ -64,74 +104,97 @@ void initADC( void ){
     ADMUX |= _BV(REFS0);
 }
 
+
 void initTimer( void ){
-    TCCR1B |= ( _BV(WGM12) | _BV(CS10) );
-    TIMSK1 |= _BV(OCIE1A);
-    OCR1A = 248;
+    // 8-bit timer, CRC mode
+    TCCR0A |= _BV(WGM01);
+
+    // clk_IO/1024 prescaler
+    // About 10ms per interrupt
+    TCCR0B |= _BV(CS02) | _BV(CS00);
+
+    // Interrupt on compare to OCR0A
+    TIMSK0 |= _BV(OCIE0A);
+    OCR0A = 100;
 }
 
-ISR(TIMER1_COMPA_vect){
-    timer1_counter++;
-    if (timer1_counter >=4){
-        millis++;
-        timer1_counter = 0;
-    }
-}
 
-uint16_t readADC( uint8_t channel ){
-    // Reset multiplexer bits
-    ADMUX &= ~(0x1F);
-
-    ADMUX |= inputs[channel];
-
-    ADCSRA |= _BV(ADSC);
-    while(bit_is_set(ADCSRA, ADSC));
-
-    return ADC;
-}
-
-int main( void ){
-    uint8_t shunt[] = { 0, 0, 0, 0, 0, 0 };
-    initTimer();
-    initADC();
-    initIO();
-
+void checkCellVoltages( void ){
     uint8_t ch;
     uint16_t voltage;
 
-    for(;;){
-        if( (millis - capture_time) > CAPTURE_STEP ){
-            PORTE ^= _BV(PE1);
-            capture_time += CAPTURE_STEP;
-
-            // Let cells settls
-            PORTB &= ~( _BV(PB3) | _BV(PB4) );
-            PORTC &= ~( _BV(PC7) | _BV(PC0) );
-            PORTD &= ~( _BV(PD0) | _BV(PD1) );
-            _delay_ms(10);
-
-            // Check Voltage at cells
-            for( ch =0; ch < 6; ch++ ){
-                voltage = readADC(ch);
-                if( voltage >= MAXV ){
-                    shunt[ch] = 1;
-                } else {
-                    shunt[ch] = 0;
-                }
-            }
-
-            for( ch = 0; ch < 6; ch++ ){
-                if( shunt[ch] == 1 ){
-                    if( ch == 0 || ch == 1 ) { PORTB |= outputs[ch]; }
-                    if( ch == 2 || ch == 4 ) { PORTC |= outputs[ch]; }
-                    if( ch == 3 || ch == 5 ) { PORTD |= outputs[ch]; }
-                } else {
-                    if( ch == 0 || ch == 1 ) { PORTB &= ~(outputs[ch]); }
-                    if( ch == 2 || ch == 4 ) { PORTC &= ~(outputs[ch]); }
-                    if( ch == 3 || ch == 5 ) { PORTD &= ~(outputs[ch]); }
-                }
-            }
+    // Check Voltage at cells
+    for( ch =0; ch < 6; ch++ ){
+        voltage = readADC(ch);
+        if( voltage >= MAXV ){
+            shunt[ch] = 1;
+        } else {
+            shunt[ch] = 0;
         }
+    }
+}
+
+
+void handleShunt( void ){
+    uint8_t ch;
+    for( ch = 0; ch < 6; ch++ ){
+        if( shunt[ch] == 1 ){
+            PORTE |= _BV(PE1); // Shunting
+            if( ch == 0 || ch == 1 ) { PORTB |= outputs[ch]; }
+            if( ch == 2 || ch == 4 ) { PORTC |= outputs[ch]; }
+            if( ch == 3 || ch == 5 ) { PORTD |= outputs[ch]; }
+        } else {
+            if( ch == 0 || ch == 1 ) { PORTB &= ~(outputs[ch]); }
+            if( ch == 2 || ch == 4 ) { PORTC &= ~(outputs[ch]); }
+            if( ch == 3 || ch == 5 ) { PORTD &= ~(outputs[ch]); }
+        }
+    }
+}
+
+
+ISR(TIMER0_COMPA_vect){
+    static uint8_t timerCounter;
+    //PORTE ^= _BV(PE1);
+    timerCounter++;
+    if( timerCounter == 9 ){
+        // Let cells settls
+        PORTB &= ~( _BV(PB3) | _BV(PB4) );
+        PORTC &= ~( _BV(PC7) | _BV(PC0) );
+        PORTD &= ~( _BV(PD0) | _BV(PD1) );
+
+        PORTD ^= _BV(PD7); // State blinky
+        PORTE &= ~_BV(PE1);// Shunt-detect blinky
+    } else if( timerCounter > 10 ){
+        PORTB ^= _BV(PB1); // State blinky
+
+        timerCounter = 0;
+        checkCellVoltages();
+        handleShunt();
+
+        //TODO: Send a CAN Message with updates
+        //      on shunting status
+        return;
+    }
+}
+
+
+int main( void ){
+    sei(); // enable interrupts
+
+    initIO();
+    handleBoot();
+    initTimer();
+    initADC();
+
+    // Enable Watchdog timer
+    // Timout after 500ms
+    wdt_enable(WDTO_500MS);
+
+    for(;;){
+        /* Everything is handled by a timer */
+
+        // "Kick the dog"
+        wdt_reset();
     }
     return 1;
 }
