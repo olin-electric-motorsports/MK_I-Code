@@ -8,6 +8,9 @@
 #define MAXV ((uint16_t) (4.2/5.0 * 0x3ff))
 #define MINV ((uint16_t) (3.0/5.0 * 0x3ff))
 
+#define MObUpdate 0
+#define MObError 1
+
 // Global constants
 const uint8_t inputs[] = { 8, 5, 9, 3, 0, 2};
 const uint8_t temp[] = {10, 6, 7, 4};
@@ -17,6 +20,7 @@ const uint8_t outputs[] = { _BV(PB3), _BV(PB4),
 
 // Global variable
 uint8_t shunt[] = { 0, 0, 0, 0, 0, 0 };
+uint8_t shunt_status = 0;
 
 
 uint16_t readADC( uint8_t channel ){
@@ -71,6 +75,10 @@ void initIO( void ){
     DDRD |= _BV(PD0); // Output 4
     DDRC |= _BV(PC0); // Output 5
     DDRD |= _BV(PD1); // Output 6
+
+    // Shutdown Circuit
+    DDRB |= _BV(PB0);
+    PORTB |= _BV(PB0);
 
     // Disable Shunt
     PORTB &= ~( _BV(PB3) | _BV(PB4) );
@@ -134,8 +142,15 @@ void checkCellVoltages( void ){
         voltage = readADC(ch);
         if( voltage >= MAXV ){
             shunt[ch] = 1;
+            shunt_status |= _BV(ch);
+        } else if( voltage <= MINV ){
+            PORTB &= ~_BV(PB0);
+            /* TODO: ENABLE
+            CAN_Tx(MObError, IDT_BMS, IDT_BMS_l, ERR_UNDERVOLT);
+            */
         } else {
             shunt[ch] = 0;
+            shunt_status &= ~_BV(ch);
         }
     }
 }
@@ -158,10 +173,29 @@ void handleShunt( void ){
 }
 
 
+ISR(CAN_INT_vect){
+    if( bit_is_set( CANSIT2, MObUpdate )){
+        // Select correct MOb
+        CANPAGE = MObUpdate << MOBNB0;
+
+        // Check if message send success
+        if( bit_is_set(CANSTMOB, TXOK) ){
+
+            // Open up MOb; reset TXOK
+            CANSTMOB = 0x00;
+            return;
+        }
+    }
+
+    // Don't handle any other interrupts
+    // TODO: Auto-CAN restart
+}
+
+
 ISR(TIMER0_COMPA_vect){
     static uint8_t timerCounter;
-    //PORTE ^= _BV(PE1);
     timerCounter++;
+
     if( timerCounter == 9 ){
         // Let cells settls
         PORTB &= ~( _BV(PB3) | _BV(PB4) );
@@ -170,6 +204,7 @@ ISR(TIMER0_COMPA_vect){
 
         PORTD ^= _BV(PD7); // State blinky
         PORTE &= ~_BV(PE1);// Shunt-detect blinky
+
     } else if( timerCounter > 10 ){
         PORTB ^= _BV(PB1); // State blinky
 
@@ -177,8 +212,11 @@ ISR(TIMER0_COMPA_vect){
         checkCellVoltages();
         handleShunt();
 
-        //TODO: Send a CAN Message with updates
-        //      on shunting status
+        // Send CAN message on shunting status
+        // Fails silently right now
+        /*
+        CAN_Tx(MObUpdate, IDT_BMS, IDT_BMS_l, shunt_status);
+        */
     }
 
     // "Kick the dog"
@@ -197,6 +235,9 @@ int main( void ){
     // Enable Watchdog timer
     // Timout after 500ms
     wdt_enable(WDTO_500MS);
+
+    // Start up CAN
+    CAN_init(1);
 
     for(;;){
         /* Everything is handled by a timer */
