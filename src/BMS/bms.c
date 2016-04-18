@@ -5,7 +5,7 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 
-#define MAXV ((uint16_t) (4.15/5.0 * 0x3ff))
+#define MAXV ((uint16_t) (4.2/5.0 * 0x3ff))
 #define MINV ((uint16_t) (3.0/5.0 * 0x3ff))
 
 // Global constants
@@ -179,8 +179,10 @@ ISR(TIMER0_COMPA_vect){
 
         //TODO: Send a CAN Message with updates
         //      on shunting status
-        return;
     }
+
+    // "Kick the dog"
+    wdt_reset();
 }
 
 
@@ -198,9 +200,6 @@ int main( void ){
 
     for(;;){
         /* Everything is handled by a timer */
-
-        // "Kick the dog"
-        wdt_reset();
     }
     return 1;
 }
