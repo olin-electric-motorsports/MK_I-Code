@@ -5,9 +5,8 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 
-#define MAXV ((uint16_t) (5.0/5.0 * 0x3ff))
+#define MAXV ((uint16_t) (4.15/5.0 * 0x3ff))
 #define MINV ((uint16_t) (3.0/5.0 * 0x3ff))
-#define CAPTURE_STEP 1000
 
 // Global constants
 const uint8_t inputs[] = { 8, 5, 9, 3, 0, 2};
@@ -21,15 +20,16 @@ uint8_t shunt[] = { 0, 0, 0, 0, 0, 0 };
 
 
 uint16_t readADC( uint8_t channel ){
+    // Que ADC reading
+    ADCSRA |= _BV(ADSC);
+    // Wait for ADC to finish
+    while(bit_is_set(ADCSRA, ADSC));
+
     // Reset multiplexer bits
     ADMUX &= ~(0x1F);
-
-    // Select correct channel
-    ADMUX |= inputs[channel];
-
-    // Que ADC reading & wait
-    ADCSRA |= _BV(ADSC);
-    while(bit_is_set(ADCSRA, ADSC));
+    // Select next channel
+    uint8_t nextChannel = (channel+1)%6;
+    ADMUX |= inputs[nextChannel];
 
     // Return reading
     return ADC;
@@ -98,10 +98,16 @@ void initADC( void ){
     ADCSRA |= _BV(ADEN);
     
     // Setup prescaler ( 32 )
-    ADCSRA |= _BV(ADPS2) | _BV(ADPS0);
+    ADCSRA |= _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
+
+    //ADCSRB &= ~_BV(AREFEN);
+    ADCSRB |= _BV(AREFEN);
 
     // Reference AVcc
     ADMUX |= _BV(REFS0);
+
+    // Default to first input
+    ADMUX |= inputs[0];
 }
 
 
