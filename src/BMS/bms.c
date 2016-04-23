@@ -5,8 +5,14 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 
-#define MAXV ((uint16_t) (4.2/5.0 * 0x3ff))
-#define MINV ((uint16_t) (3.0/5.0 * 0x3ff))
+//#define MAXV ((uint16_t) (4.2/5.0 * 0x3ff))
+/* 0x01 */
+//#define MAXV ((uint16_t) (4.10/4.64 * 0x3ff))
+//#define MINV ((uint16_t) (3.0/4.64 * 0x3ff))
+
+/* 0x02 Flavianus */
+#define MAXV ((uint16_t) (4.10/4.97 * 0x3ff))
+#define MINV ((uint16_t) (3.0/4.97 * 0x3ff))
 
 #define MObUpdate 0
 #define MObError 1
@@ -197,20 +203,24 @@ ISR(TIMER0_COMPA_vect){
     timerCounter++;
 
     if( timerCounter == 9 ){
+        PORTD |= _BV(PD7); // State blinky
+
         // Let cells settls
         PORTB &= ~( _BV(PB3) | _BV(PB4) );
         PORTC &= ~( _BV(PC7) | _BV(PC0) );
         PORTD &= ~( _BV(PD0) | _BV(PD1) );
 
-        PORTD ^= _BV(PD7); // State blinky
         PORTE &= ~_BV(PE1);// Shunt-detect blinky
 
+        PORTD &= ~_BV(PD7);
     } else if( timerCounter > 10 ){
-        PORTB ^= _BV(PB1); // State blinky
+        PORTB |= _BV(PB1); // State blinky
 
         timerCounter = 0;
         checkCellVoltages();
         handleShunt();
+
+        PORTB &= ~_BV(PB1); // State blinky
 
         // Send CAN message on shunting status
         // Fails silently right now
