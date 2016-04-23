@@ -21,35 +21,44 @@ Make more nodes
 ## Nodes
 *note: These nodes are not necessarily in order of importance*
 
-###Crucial Nodes
-#####Watchdog
+#####All
+- Detect heartbeat and have auto-resetable CAN line in case it detects that its own CAN line has failed.
+- Sends out some sort of heartbeat message
+- Internal watchdog circuit activation
+- Completely asynchronous code architecture
+- CPU shutoff when not interrupted. There are no nodes which require there to be ANY code in the infinite `for(;;)` loop (or `while` loop if thats how you roll).
 
-Keep track of all nodes and error messages on the CAN line. Will initiate shutdown sequence if necessary, or light up the correct error lights.
+#####Dashboard
+- Display all necessary information to the driver via LCD
+- Detect startup button
+- Detect the switches that are attached to it
 
-#####Control Panel
+#####Panel Board
+- Keep track of all nodes and error messages on the CAN line. Will initiate shutdown sequence if necessary, or light up the correct error lights.
+- Sends out heartbeat so that every node knows its CAN line is working
 
-Display all necessary information to the driver.
+##### Bulkhead
+- Senses Throttle position every 100ms and sends a CAN message with information
+- Senses Break every 100ms and sends a CAN message with information. Will also set throttle to 0 if break is pressed.
+- Detects throttle implausibility with 10% difference on Pots as well as over-reading or under-reading
+- Wheel speed measurement 
 
-#####Emergency Buttons
+##### Air-control Board
+- Detects when the motor controller has finished precharging.
 
-Keep track of Emergency button states. Will not necessarily act on Emergency button presses, as most of them will be analog. 
+#####BMS x 4
+- Monitors cell voltage to ensure that they do not overvolt (>4.15V) or undervolt (<3V). 
+- Shunts cells if over-volted for 9/10 of a second then rests for a tenth of a second
+- Monitors temperature of cells
+- Monitors temperature of self
 
-#####Insulation Modelling
+- On undervolt or overtemperature it will shutdown the power draw of the car and send a CAN notification
 
-Ensure no short-circuits throughout all electrical wiring. 
+- Heartbeat includes cell shunting status
 
-#####BMS
+#####MCC
+- Supplies PWM on isolated line to motor controller throttle inputs.
+- CAN message updates throttle with timeout system to disable throttle if CAN message is not timely.
+- Recieves wheel speed updates for traction control
+- Manages FS switch for Motor controller functionality
 
-Keep track of battery charge and ensure that the cells are not undervolted.
-
-#####Motor Controller/Throttle
-
-Give throttle control to the motor controller via CAN. Keep track of motor controller error codes and warnings.
-
-##### Precharge Check Node
-
-Detects when the motor controller has finished precharging.
-
-###Extra Nodes
-#####Telemetry
-#####Real-time Telemetry w/ bluetooth
