@@ -15,9 +15,14 @@ uint8_t CAN_init( uint8_t interrupt_depth ){
     CANTCON = 0x00; 
 
     // Set BAUD rate
+    /*
     CANBT1 = 0x01; // Set BAUD rate to 500kb
     CANBT2 = 0x04; // Re-synch handling
     CANBT3 = 0x13; // Phase edge error handling
+    */
+    CANBT1 = 0x06;
+    CANBT2 = 0x0C;
+    CANBT3 = 0x37;
 
     // Set up interrupts based on how much the user wants
     switch( interrupt_depth ){
@@ -27,10 +32,13 @@ uint8_t CAN_init( uint8_t interrupt_depth ){
             CANGIE |= _BV(ENBOFF) | _BV(ENBX);
         case 1:
             // Enable general CAN interrupts & MOb interrupts
-            CANGIE |= _BV(ENERG) | _BV(ENERR);
-        default:
+            CANGIE |= _BV(ENERG) | _BV(ENERR) | _BV(ENTX);
+        case 0:
             // Allow all interrupts & receive interrupts
-            CANGIE |= _BV(ENIT) | _BV(ENRX) | _BV(ENTX);
+            CANGIE |= _BV(ENIT) | _BV(ENRX);
+        default:
+            break;
+            // No interrupts ?
     }
 
     // compatibility with future chips

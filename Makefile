@@ -1,4 +1,6 @@
 TARGET=$(build)
+#NAME=$(notdir $(TARGET))
+#$(info $$var is [${NAME}])
 
 CC=avr-gcc
 MCU=atmega16m1
@@ -58,11 +60,15 @@ $(OBJDIR):
 
 .PHONY: flash
 flash: $(BUIDIR)/$(TARGET).hex
-	$(AVRDUDE) $(AVRFLAGS) -U flash:w:$<
+	sudo $(AVRDUDE) $(AVRFLAGS) -U flash:w:$<
 
 .PHONY: verify
 verify: $(BUIDIR)/$(TARGET).hex
-	$(AVRDUDE) $(AVRFLAGS) -U flash:v:$<
+	sudo $(AVRDUDE) $(AVRFLAGS) -U flash:v:$<
+
+.PHONY: fuse
+fuse: 
+	sudo $(AVRDUDE) $(AVRFLAGS) -U hfuse:w:0xDF:m 
 
 .PHONY: clean
 clean: 
