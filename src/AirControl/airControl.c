@@ -47,6 +47,16 @@ int main(void){
         log_error(4);
     }
 
+    PORTB |= _BV(PB7);
+
     for(;;){
+        PORTB ^= _BV(PB7) | _BV(PB6) | _BV(PB0);
+        _delay_ms(400);
+        PORTB ^= _BV(PB6) | _BV(PB5);
+        _delay_ms(400);
+        PORTB ^= _BV(PB5) | _BV(PB6);
+        _delay_ms(400);
+        PORTB ^= _BV(PB6) | _BV(PB7);
+        _delay_ms(400);
     }
 }
