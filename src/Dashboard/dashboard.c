@@ -6,52 +6,98 @@
 #include <string.h>
 #include "lcd.h"
 
-/*
-ISR(CAN_INT_vect){
-    if( bit_is_set( CANSIT2, 0 )){
-        CANPAGE = 0x00;
-        uint8_t tmp = CANMSG;
-        char str[8];
-        sprintf(str, "%d\n", tmp);
-        lcd_puts(str);
-        CANSTMOB &= ~_BV(RXOK);
-    }
-    lcd_puts("Interrupted!\n");
-}
-*/
 
+void initIO(void){
+    //Debug LEDs
+    DDRB |= _BV(PB7) | _BV(PB6);
+
+    //Pot input
+    DDRC &= ~_BV(PC5); // ADC9
+
+    //Button sensing
+    DDRD &= ~_BV(PD5); // PCINT21  2
+    DDRD &= ~_BV(PD6); // PCINT22  2
+
+    // MultiSwitch
+    DDRB &= ~_BV(PB1); // PCINT1   0
+    DDRE &= ~_BV(PE1); // PCINT25  3
+    DDRE &= ~_BV(PE2); // PCINT26  3
+
+    // Switches
+    DDRD &= ~_BV(PD3); // PCINT19  2
+    DDRC &= ~_BV(PC6); // PCINT14  1
+    DDRB &= ~_BV(PB3); // PCINT3   0
+}
+
+void initInterrupts(void){
+    PCICR |= _BV(PCIE3) | _BV(PCIE2) | _BV(PCIE1) | _BV(PCIE0);
+
+    PCMSK3 |= _BV(PCINT26) | _BV(PCINT25);
+    PCMSK2 |= _BV(PCINT22) | _BV(PCINT21) | _BV(PCINT19);
+    PCMSK1 |= _BV(PCINT14);
+    PCMSK0 |= _BV(PCINT1) | _BV(PCINT3);
+}
+
+ISR(PCINT0_vect){
+    uint8_t tmp;
+    tmp = PINB;
+    lcd_clrscr(); // TODO REMOVE
+    if( bit_is_set(tmp, PB1) ){
+        // TODO: Multiswitch 0
+        lcd_puts("Multiswitch 0\n");
+    } else if( bit_is_set(tmp, BP3) ){
+        // TODO: Switch 2
+        lcd_puts("Switch 2\n");
+    }
+}
+
+ISR(PCINT1_vect){
+    uint8_t tmp;
+    tmp = PINC;
+    lcd_clrscr(); // TODO REMOVE
+    if( bit_is_set(tmp, PC6) ){
+        // TODO: Switch 1
+        lcd_puts("Switch 1\n");
+    }
+}
+
+ISR(PCINT2_vect){
+    uint8_t tmp;
+    tmp = PIND;
+    lcd_clrscr(); // TODO REMOVE
+    if( bit_is_set(tmp, PD3) ){
+        // TODO: Switch 0
+        lcd_puts("Switch 0\n");
+    } else if( bit_is_set(tmp, PD5) ){
+        // TODO: Button 0
+        lcd_puts("Button 0\n");
+    } else if( bit_is_set(tmp, PD6) ){
+        // TODO: Button 1
+        lcd_puts("Button 1\n");
+    }
+}
+
+ISR(PCINT3_vect){
+    uint8_t tmp;
+    tmp = PINE;
+    lcd_clrscr(); // TODO REMOVE
+    if( bit_is_set(tmp, PE1) ){
+        // TODO: Multiswitch 1
+        lcd_puts("Multiswitch 1\n");
+    } else if( bit_is_set(tmp, PE2) ){
+        // TODO: Multiswitch 2
+        lcd_puts("Multiswitch 2\n");
+    }
+}
 
 int main(void){
-    //uint8_t err=0;
-
     sei();
-    //lcd_init(LCD_DISP_ON_CURSOR_BLINK);
     lcd_init(LCD_ON_DISPLAY);
     _delay_ms(100);
     lcd_clrscr();
-    lcd_puts("Hello\n");
-
-
-    //CAN_init(1);
-    //loop_until_bit_is_set(CANGSTA, ENFG);
-
-    lcd_puts("Riley\n");
-
-    //err = CAN_Rx(0, IDT_throttle, IDT_throttle_l, IDM_single);
-    //err = CAN_Rx(0, IDT_demo, IDT_demo_l, IDM_single);
-    //if(err){
-        //lcd_puts("0x01\n");
-    //}
-
-    /*
-    uint8_t msg = 11;
-    err = CAN_Tx(1, IDT_demo, IDT_demo_l, &msg);
-    if(err){
-        lcd_puts("0x02\n");
-    }
-    lcd_puts("0x03\n");
-    */
     
+    lcd_puts("Hello\nRiley");
+
     for(;;){
     }
 }
