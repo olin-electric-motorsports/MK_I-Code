@@ -45,7 +45,7 @@ ISR(PCINT0_vect){
     if( bit_is_set(tmp, PB1) ){
         // TODO: Multiswitch 0
         lcd_puts("Multiswitch 0\n");
-    } else if( bit_is_set(tmp, BP3) ){
+    } else if( bit_is_set(tmp, PB3) ){
         // TODO: Switch 2
         lcd_puts("Switch 2\n");
     }
