@@ -92,6 +92,8 @@ ISR(PCINT3_vect){
 */
 
 int main(void){
+    DDRB |= _BV(PB7) | _BV(PB6);
+
     sei();
     //lcd_init(LCD_ON_DISPLAY);
     lcd_init(LCD_DISP_ON_CURSOR_BLINK);
@@ -100,8 +102,10 @@ int main(void){
 
     _delay_ms(1000);
     
-    //lcd_puts("Hello");
+    lcd_puts("Hello");
 
     for(;;){
+        PORTB ^= _BV(PB7) | _BV(PB6);
+        _delay_ms(500);
     }
 }
