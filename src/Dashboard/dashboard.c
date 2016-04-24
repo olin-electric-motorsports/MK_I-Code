@@ -6,7 +6,7 @@
 #include <string.h>
 #include "lcd.h"
 
-
+/*
 void initIO(void){
     //Debug LEDs
     DDRB |= _BV(PB7) | _BV(PB6);
@@ -89,14 +89,18 @@ ISR(PCINT3_vect){
         lcd_puts("Multiswitch 2\n");
     }
 }
+*/
 
 int main(void){
     sei();
-    lcd_init(LCD_ON_DISPLAY);
-    _delay_ms(100);
+    //lcd_init(LCD_ON_DISPLAY);
+    lcd_init(LCD_DISP_ON_CURSOR_BLINK);
+    _delay_ms(1000);
     lcd_clrscr();
+
+    _delay_ms(1000);
     
-    lcd_puts("Hello\nRiley");
+    //lcd_puts("Hello");
 
     for(;;){
     }
