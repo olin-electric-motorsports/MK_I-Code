@@ -73,10 +73,10 @@ ISR(PCINT0_vect){
     lcd_clrscr(); // TODO REMOVE
     if( bit_is_set(tmp, PB1) ){
         // TODO: Multiswitch 0
-        lcd_puts("\nMultiswitch 0");
+        lcd_puts("Multiswitch 0");
     } else if( bit_is_set(tmp, PB3) ){
         // TODO: Switch 2
-        lcd_puts("\nSwitch 2");
+        lcd_puts("Switch 2");
     }
 }
 
@@ -86,7 +86,7 @@ ISR(PCINT1_vect){
     lcd_clrscr(); // TODO REMOVE
     if( bit_is_set(tmp, PC6) ){
         // TODO: Switch 1
-        lcd_puts("\nSwitch 1");
+        lcd_puts("Switch 1");
     }
 }
 
@@ -96,13 +96,13 @@ ISR(PCINT2_vect){
     lcd_clrscr(); // TODO REMOVE
     if( bit_is_set(tmp, PD3) ){
         // TODO: Switch 0
-        lcd_puts("\nSwitch 0");
+        lcd_puts("Switch 0");
     } else if( bit_is_set(tmp, PD5) ){
         // TODO: Button 0
-        lcd_puts("\nButton 0");
+        lcd_puts("Button 0");
     } else if( bit_is_set(tmp, PD6) ){
         // TODO: Button 1
-        lcd_puts("\nButton 1");
+        lcd_puts("Button 1");
     }
 }
 
@@ -112,10 +112,10 @@ ISR(PCINT3_vect){
     lcd_clrscr(); // TODO REMOVE
     if( bit_is_set(tmp, PE1) ){
         // TODO: Multiswitch 1
-        lcd_puts("\nMultiswitch 1");
+        lcd_puts("Multiswitch 1");
     } else if( bit_is_set(tmp, PE2) ){
         // TODO: Multiswitch 2
-        lcd_puts("\nMultiswitch 2");
+        lcd_puts("Multiswitch 2");
     }
 }
 
@@ -128,7 +128,7 @@ ISR(TIMER0_COMPA_vect){
 
     uint16_t reading = ADC;
     char output[16];
-    sprintf(output, "\n%d", reading);
+    sprintf(output, "%d", reading);
 
     lcd_puts(output);
 }
@@ -137,18 +137,19 @@ int main(void){
     DDRB |= _BV(PB7) | _BV(PB6);
 
     sei();
-    //lcd_init(LCD_ON_DISPLAY);
-    lcd_init(LCD_DISP_ON_CURSOR_BLINK);
+    _delay_ms(1000);
+    //lcd_init(LCD_DISP_ON_CURSOR_BLINK);
+    lcd_init(LCD_DISP_ON);
     _delay_ms(100);
     lcd_clrscr();
 
     _delay_ms(100);
     
-    lcd_puts("\nHello");
+    lcd_puts("Hello");
     initIO();
     //initInterrupts();
-    initADC();
-    initTimer();
+    //initADC();
+    //initTimer();
 
     for(;;){
         //PORTB ^= _BV(PB7) | _BV(PB6);
