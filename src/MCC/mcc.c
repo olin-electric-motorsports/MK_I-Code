@@ -16,7 +16,6 @@ ISR(CAN_INT_vect){
       message = CANMSG;
     }
     //Set counters to the values specified by the can message
-    OCR0A = message;
     OCR0B = message;
 
 }
@@ -27,6 +26,19 @@ int main(void){
     CAN_init(1);
     sei();
 
+
+    //Enable ADC, set prescalar to 128 (slow down ADC clock)
+    ADCSRA |= _BV(ADEN); //| _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
+
+    //Enable internal reference voltage
+    ADCSRB &= _BV(AREFEN);
+
+    //Set internal reference voltage as AVcc
+    ADMUX |= _BV(REFS0);
+
+    //Reads by default from ADC0 (pin 11); this line
+    //  is redundant.
+    ADMUX |= _BV( 0x00 );
     
     /*blinky*/
     /*
@@ -40,9 +52,9 @@ int main(void){
 
     /*pwm setup*/
 
-    //pin setup
-    DDRD |= _BV(OC0A);
-    DDRE |= _BV(OC0B);
+    //need to set counters
+    //OCR0B is for OC0B
+    OCR0B = 0x00;
 
     //phase correct pwm
     //counter based on value in OCR0A and OCR0B (for pins OC0A and OC0B respectively)
@@ -50,7 +62,6 @@ int main(void){
     //Pretty sure count is the length of the duty cycle or something.
     //and it increases as you go up and decreases as you go down?
     //kinda fuzzy.
-    TCCR0B |= _BV(WGM02);
     TCCR0A |= _BV(WGM00);
     TCCR0A &= ~(_BV(WGM01));
 
@@ -58,28 +69,54 @@ int main(void){
     //same for COM0B0:1 for OC0B
     //not sure what inversion does, but you have to choose one
     //I think it's probably something about defaulting to high power or low power at different duty cycles?
-    TCCR0A |= _BV(COM0A1);
-    TCCR0A &= ~(_BV(COM0A0));
-    TCCR0B |= _BV(COM0A1);
-    TCCR0B &= ~(_BV(COM0A0));
+    TCCR0A |= _BV(COM0B1);
+    TCCR0A &= ~(_BV(COM0B0));
 
     //prescaling: CS02:0
     //prescalar of 1 is a pwm frequency of ~1960 Hz
     //other prescalar values have smaller frequencies
     //not sure what frequency we need
     TCCR0B |= _BV(CS00);
-    TCCR0B &= ~(_BV(CS02) & _BV(CS01));
+    TCCR0B &= ~(_BV(CS02) | _BV(CS01));
+
+    //pin setup
+    DDRE |= _BV(PE1);
+
+    /*16 bit timer
+       OC1B*/
 
     //need to set counters
-    //OCR0A is for OC0A
     //OCR0B is for OC0B
-    OCR0A = 0x00;
-    OCR0B = 0x00;
-    //currently set to nothing
+    OCR1BL = 0x00;
+
+    //phase correct pwm
+    //counter based on value in OCR0A and OCR0B (for pins OC0A and OC0B respectively)
+    //setting WGM02:0 to 5 allows you to do phase correct pwm and set your own counter
+    //Pretty sure count is the length of the duty cycle or something.
+    //and it increases as you go up and decreases as you go down?
+    //kinda fuzzy.
+    TCCR1A |= _BV(WGM10);
+    TCCR1A &= ~(_BV(WGM11));
+
+    //COM0A0:1 controls the inversion of pwm output in OC0A
+    //same for COM0B0:1 for OC0B
+    //not sure what inversion does, but you have to choose one
+    //I think it's probably something about defaulting to high power or low power at different duty cycles?
+    TCCR1A |= _BV(COM1B1);
+    TCCR1A &= ~(_BV(COM1B0));
+
+    //prescaling: CS02:0
+    //prescalar of 1 is a pwm frequency of ~1960 Hz
+    //other prescalar values have smaller frequencies
+    //not sure what frequency we need
+    TCCR1B |= _BV(CS10);
+    TCCR1B &= ~(_BV(CS12) | _BV(CS11));
+
+    //pin setup
+    DDRC |= _BV(PC1);
     
     //CANRX
     CAN_Rx(0, IDT_throttle, IDT_throttle_l, IDM_single);
     
-
 
 }
