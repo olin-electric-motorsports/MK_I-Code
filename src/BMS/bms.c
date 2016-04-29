@@ -14,11 +14,15 @@
 #define MAXV ((uint16_t) (4.10/4.97 * 0x3ff))
 #define MINV ((uint16_t) (3.0/4.97 * 0x3ff))
 
+// Max temperature
+#define MAXTEMP ((uint16_t) (1.1/4.97 * 0x3ff))
+
+// CAN
 #define MObUpdate 0
 #define MObError 1
 
 // Global constants
-const uint8_t inputs[] = { 8, 5, 9, 3, 0, 2};
+const uint8_t inputs[] = { 8, 5, 9, 3, 0, 2}; // 9 is breaking
 const uint8_t temp[] = {10, 6, 7, 4};
 const uint8_t outputs[] = { _BV(PB3), _BV(PB4),
                             _BV(PC7), _BV(PD0),
@@ -29,17 +33,28 @@ uint8_t shunt[] = { 0, 0, 0, 0, 0, 0 };
 uint8_t shunt_status = 0;
 
 
-uint16_t readADC( uint8_t channel ){
+uint16_t readADC( uint8_t channel, uint8_t channel_next ){
+    // Set channel if not set correctly beforehand
+    if( !((ADMUX & 0x1F) == channel) ){
+        ADMUX &= ~(0x1F);
+        ADMUX |= channel;
+    }
+
     // Que ADC reading
     ADCSRA |= _BV(ADSC);
     // Wait for ADC to finish
     while(bit_is_set(ADCSRA, ADSC));
 
-    // Reset multiplexer bits
-    ADMUX &= ~(0x1F);
+    /*
     // Select next channel
     uint8_t nextChannel = (channel+1)%6;
     ADMUX |= inputs[nextChannel];
+    */
+    
+    // Select next channel to maximize settling time
+    // of the ADC
+    ADMUX &= ~(0x1F);
+    ADMUX |= channel_next;
 
     // Return reading
     return ADC;
@@ -70,9 +85,9 @@ void handleBoot( void ){
 
 void initIO( void ){
     // Debug lights 
-    DDRE |= _BV(PE1); // Light 1
-    DDRB |= _BV(PB1); // Light 2
-    DDRD |= _BV(PD7); // Light 3
+    DDRE |= _BV(PE1); // Light 1 SHUNT
+    DDRB |= _BV(PB1); // Light 2 STATE 
+    DDRD |= _BV(PD7); // Light 3 
 
     // Outputs
     DDRB |= _BV(PB3); // Output 1
@@ -145,7 +160,7 @@ void checkCellVoltages( void ){
 
     // Check Voltage at cells
     for( ch =0; ch < 6; ch++ ){
-        voltage = readADC(ch);
+        voltage = readADC(inputs[ch], inputs[((ch+1)%6)]);
         if( voltage >= MAXV ){
             shunt[ch] = 1;
             shunt_status |= _BV(ch);
@@ -157,6 +172,19 @@ void checkCellVoltages( void ){
         } else {
             shunt[ch] = 0;
             shunt_status &= ~_BV(ch);
+        }
+    }
+}
+
+
+void checkTemperatures( void ){
+    uint8_t ch;
+    uint16_t voltage;
+
+    for( ch=0; ch < 4; ch++ ){
+        voltage = readADC( temp[ch], temp[((ch+1)%4)] );
+        if( voltage >= MAXTEMP ){
+            PORTB &= ~_BV(PB0);
         }
     }
 }
@@ -202,17 +230,18 @@ ISR(TIMER0_COMPA_vect){
     static uint8_t timerCounter;
     timerCounter++;
 
-    if( timerCounter == 9 ){
-        PORTD |= _BV(PD7); // State blinky
+    if( timerCounter == 4){
+        checkTemperatures();
+    } else if( timerCounter == 9 ){
 
         // Let cells settls
         PORTB &= ~( _BV(PB3) | _BV(PB4) );
         PORTC &= ~( _BV(PC7) | _BV(PC0) );
         PORTD &= ~( _BV(PD0) | _BV(PD1) );
+        
+        // Shunt blinky
+        PORTE &= ~_BV(PE1);
 
-        PORTE &= ~_BV(PE1);// Shunt-detect blinky
-
-        PORTD &= ~_BV(PD7);
     } else if( timerCounter > 10 ){
         PORTB |= _BV(PB1); // State blinky
 
