@@ -30,6 +30,22 @@ ISR(CAN_INT_vect){
     log_error(2);
 }
 
+void initIO( void ){
+    // Throttle Sensing
+    DDRB &= ~_BV(PB6); // ADC7
+    DDRB &= ~_BV(PB7); // ADC4
+
+    // Onboard LEDs
+    DDRC |= _BV(PC5);
+    DDRC |= _BV(PC4);
+
+    // LW speed
+    DDRD &= ~_BV(PD4); // ADC1
+
+    // RW speed
+    DDRD &= ~_BV(PD5); // ADC2
+}
+
 
 int main(void){
     uint8_t err=0; 

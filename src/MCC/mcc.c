@@ -20,6 +20,27 @@ ISR(CAN_INT_vect){
 
 }
 
+void initIO( void ){
+    // Brake light
+    DDRC |= _BV(PC7);
+
+    // Brake sense
+    DDRB |= _BV(PB7);
+
+    // Left throttle
+    DDRD |= _BV(PE1);
+
+    // Right throttle
+    DDRD |= _BV(PC1);
+
+    // Forward switch
+    DDRB |= _BV(PB2);
+    DDRD |= _BV(PD7);
+
+    // Onboard LED
+    DDRC |= _BV(PC4);
+}
+
 //get can message from throttle
 int main(void){
     //initializing things
