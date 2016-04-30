@@ -30,6 +30,17 @@ ISR(CAN_INT_vect){
     log_error(2);
 }
 
+void initIO( void ){
+    // Onboard LEDs
+    DDRB |= _BV(PB7) | _BV(PB6) | _BV(PB5);
+
+    // Shutdown Sense
+    DDRD &= ~_BV(PD5);
+
+    // Shutdown circuit (???)
+    DDRB |= _BV(PB0);
+}
+
 int main(void){
     DDRB |= _BV(PB5) | _BV(PB6) | _BV(PB7);
     PORTB |= _BV(PB6);
