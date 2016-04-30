@@ -11,8 +11,8 @@
 //#define MINV ((uint16_t) (3.0/4.64 * 0x3ff))
 
 /* 0x02 Flavianus */
-#define MAXV ((uint16_t) (4.10/4.97 * 0x3ff))
-#define MINV ((uint16_t) (3.0/4.97 * 0x3ff))
+#define MAXV ((uint16_t) (4.15/5 * 0x3ff))
+#define MINV ((uint16_t) (3.0/5 * 0x3ff))
 
 // Max temperature
 #define MAXTEMP ((uint16_t) (1.1/4.97 * 0x3ff))
@@ -183,8 +183,9 @@ void checkTemperatures( void ){
 
     for( ch=0; ch < 4; ch++ ){
         voltage = readADC( temp[ch], temp[((ch+1)%4)] );
-        if( voltage >= MAXTEMP ){
+        if( voltage <= MAXTEMP ){
             PORTB &= ~_BV(PB0);
+            PORTD |= _BV(PD7);
         }
     }
 }
