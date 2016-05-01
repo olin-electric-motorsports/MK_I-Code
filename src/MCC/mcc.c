@@ -63,7 +63,8 @@ int main(void){
     //and it increases as you go up and decreases as you go down?
     //kinda fuzzy.
     TCCR0A |= _BV(WGM00);
-    TCCR0A &= ~(_BV(WGM01));
+    TCCR0A |= _BV(WGM01);
+    //TCCR0B |= _BV(WGM02);
 
     //COM0A0:1 controls the inversion of pwm output in OC0A
     //same for COM0B0:1 for OC0B
@@ -96,7 +97,7 @@ int main(void){
     //and it increases as you go up and decreases as you go down?
     //kinda fuzzy.
     TCCR1A |= _BV(WGM10);
-    TCCR1A &= ~(_BV(WGM11));
+    TCCR1B |= _BV(WGM12);
 
     //COM0A0:1 controls the inversion of pwm output in OC0A
     //same for COM0B0:1 for OC0B
