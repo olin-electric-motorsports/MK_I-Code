@@ -4,7 +4,85 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
+
+void initIO( void ){
+    // Brake light
+    DDRC |= _BV(PC7);
+
+    // Brake sense
+    DDRB |= _BV(PB7); // PCINT7
+
+    // Left throttle
+    DDRE |= _BV(PE1);
+
+    // Right throttle
+    DDRC |= _BV(PC1);
+
+    // Forward switch
+    DDRB |= _BV(PB2);
+    DDRD |= _BV(PD7);
+
+    // Onboard LED
+    DDRC |= _BV(PC4);
+}
+
+
+void initInterrupts( void ){
+    PCICR |= _BV(PCIE0);
+
+    PCMSK0 |= _BV(PCINT7);
+}
+
+void initTimer( void ){
+    // 8 bit timer
+    OCR0B = 100;
+    TCCR0A |= _BV(WGM00);
+    TCCR0A &= ~(_BV(WGM01));
+
+    TCCR0A |= _BV(COM0B1);
+    TCCR0A &= ~(_BV(COM0B0));
+
+    TCCR0B |= _BV(CS00);
+    TCCR0B &= ~(_BV(CS02) | _BV(CS01));
+
+    // 16 bit timer
+    OCR1BL = 100;
+    TCCR1A |= _BV(WGM10);
+    TCCR1A &= ~(_BV(WGM11));
+    TCCR1A |= _BV(COM1B1);
+    TCCR1A &= ~(_BV(COM1B0));
+    TCCR1B |= _BV(CS10);
+    TCCR1B &= ~(_BV(CS12) | _BV(CS11));
+
+}
+
+
+ISR(PCINT0_vect){
+
+    /*
+    if( bit_is_set( PINB, PB7 )){
+        PORTC |= _BV(PC7);
+    } else {
+        PORTC &= ~_BV(PC7);
+    }
+    */
+}
+
 ISR(CAN_INT_vect){
+    uint8_t msg;
+    if( bit_is_set(CANSIT, 0) ){
+        CANPAGE = 0 << MOBNB0;
+        CANSTMOB = 0x00;
+
+        msg = CANMSG;
+        msg = CANMSG;
+        if( msg == 1 ){
+            PORTC |= _BV(PC7);
+        } else {
+            PORTC &= ~_BV(PC7);
+        }
+    }
+    /*
     //receives a can message containing the value of the amplitude. 
     //Will store this value right into OCR0A and OCR0B
     //by the way i have no idea if I am reading in can messages correctly
@@ -17,37 +95,29 @@ ISR(CAN_INT_vect){
     }
     //Set counters to the values specified by the can message
     OCR0B = message;
-
-}
-
-void initIO( void ){
-    // Brake light
-    DDRC |= _BV(PC7);
-
-    // Brake sense
-    DDRB |= _BV(PB7);
-
-    // Left throttle
-    DDRD |= _BV(PE1);
-
-    // Right throttle
-    DDRD |= _BV(PC1);
-
-    // Forward switch
-    DDRB |= _BV(PB2);
-    DDRD |= _BV(PD7);
-
-    // Onboard LED
-    DDRC |= _BV(PC4);
+    */
 }
 
 //get can message from throttle
 int main(void){
     //initializing things
-    CAN_init(1);
+    CAN_init(0, 1);
+    CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
+    
     sei();
+    initIO();
+    initInterrupts();
+    initTimer();
 
+    for(;;){
+        
+        PORTB ^= _BV(PB2);
+        PORTD ^= _BV(PD7);
+        PORTC ^= _BV(PC4);
+        _delay_ms(500);
+    }
 
+    /*
     //Enable ADC, set prescalar to 128 (slow down ADC clock)
     ADCSRA |= _BV(ADEN); //| _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
 
@@ -61,17 +131,14 @@ int main(void){
     //  is redundant.
     ADMUX |= _BV( 0x00 );
     
-    /*blinky*/
-    /*
     DDRC |= _BV(PC4);
 
     for(;;){
         PORTC ^= _BV(PC4);
         _delay_ms(500);
     }
-    */
 
-    /*pwm setup*/
+    /pwm setup/
 
     //need to set counters
     //OCR0B is for OC0B
@@ -103,8 +170,8 @@ int main(void){
     //pin setup
     DDRE |= _BV(PE1);
 
-    /*16 bit timer
-       OC1B*/
+    //16 bit timer
+    // OC1B
 
     //need to set counters
     //OCR0B is for OC0B
@@ -138,6 +205,6 @@ int main(void){
     
     //CANRX
     CAN_Rx(0, IDT_throttle, IDT_throttle_l, IDM_single);
-    
+    */
 
 }

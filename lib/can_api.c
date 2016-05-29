@@ -3,7 +3,7 @@
 /* ************** *
  * Functions      *
  * ************** */
-uint8_t CAN_init( uint8_t interrupt_depth ){
+uint8_t CAN_init( uint8_t interrupt_depth, uint8_t listen ){
     // Global interrupts
     sei();
 
@@ -16,23 +16,37 @@ uint8_t CAN_init( uint8_t interrupt_depth ){
 
     // Set BAUD rate
     /*
-    CANBT1 = 0x01; // Set BAUD rate to 500kb
-    CANBT2 = 0x04; // Re-synch handling
+    CANBT1 = 0x01; // Set BAUD rate to 500kb CANBT2 = 0x04; // Re-synch handling
     CANBT3 = 0x13; // Phase edge error handling
     */
+    // Old CAN settings
+    /*
+        CANBT1 = 0x06;
+        CANBT2 = 0x0C;
+        CANBT3 = 0x37;
+    */
+
+    // New CAN settings
     CANBT1 = 0x06;
-    CANBT2 = 0x0C;
-    CANBT3 = 0x37;
+    //CANBT2 = 0x0E;
+    //CANBT3 = 0x7E;
+    CANBT2 = 0x06;
+    CANBT3 = 0xBE;
+
+    //0x06    0x06    0xbe
 
     // Set up interrupts based on how much the user wants
     switch( interrupt_depth ){
         // Allow for fall-through with switch
-        case 2:
+        case 3:
             // Enable Bus off interrupt & buffer frame interrupt
             CANGIE |= _BV(ENBOFF) | _BV(ENBX);
-        case 1:
+        case 2:
             // Enable general CAN interrupts & MOb interrupts
-            CANGIE |= _BV(ENERG) | _BV(ENERR) | _BV(ENTX);
+            CANGIE |= _BV(ENERG) | _BV(ENERR);
+        case 1:
+            // Enable transmission interrupts
+            CANGIE |= _BV(ENTX);
         case 0:
             // Allow all interrupts & receive interrupts
             CANGIE |= _BV(ENIT) | _BV(ENRX);
@@ -68,7 +82,12 @@ uint8_t CAN_init( uint8_t interrupt_depth ){
     //  instead of standby
     //  Necessary in order to get CAN
     //  communication
-    CANGCON |= _BV( ENASTB );
+
+    if( listen > 0 ){
+        CANGCON |= _BV(LISTEN) | _BV( ENASTB );
+    } else {
+        CANGCON |= _BV( ENASTB );
+    }
 
     return(0);
 }

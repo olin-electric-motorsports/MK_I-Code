@@ -3,37 +3,34 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include <avr/wdt.h>
 
-void log_error( uint8_t msg ){
-    uint8_t i;
-    for(;;){
-        for(i=0; i < msg; i++){
-            PORTC |= _BV(PC4);
-            _delay_ms(200);
-            PORTC &= ~_BV(PC4);
-            _delay_ms(200);
-        }
+uint8_t channels[] = {4, 7};
+
+void handleBoot( void ){
+    if( bit_is_set(MCUSR, WDRF) ){
+        // Handle Watchdog reset
+        MCUSR = 0x00;
+        wdt_disable();
+
+        PORTE |= _BV(PE1);
+
+        //TODO: Send a CAN message
+    } else {
+        // Flash all LEDs
+        PORTC |= _BV(PC5) | _BV(PC4);
         _delay_ms(1000);
+        PORTC &= ~(_BV(PC5) | _BV(PC4));
     }
-}
-
-ISR(CAN_INT_vect){
-    if( bit_is_set( CANSIT2, 3 )){
-        CANPAGE = 3 << MOBNB0;
-        if( bit_is_set(CANSTMOB, TXOK) ){
-            log_error(5);
-        } else {
-            log_error(6);
-        }
-
-    }
-    log_error(2);
 }
 
 void initIO( void ){
     // Throttle Sensing
     DDRB &= ~_BV(PB6); // ADC7
     DDRB &= ~_BV(PB7); // ADC4
+
+    // Brake
+    DDRC &= ~_BV(PC0);
 
     // Onboard LEDs
     DDRC |= _BV(PC5);
@@ -46,61 +43,81 @@ void initIO( void ){
     DDRD &= ~_BV(PD5); // ADC2
 }
 
+void initADC( void ){
+    // Enable ADC
+    ADCSRA |= _BV(ADEN);
+    
+    // Setup prescaler ( 32 )
+    ADCSRA |= _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
+
+    //ADCSRB &= ~_BV(AREFEN);
+    ADCSRB |= _BV(AREFEN);
+
+    // Reference AVcc
+    ADMUX |= _BV(REFS0);
+
+    // Default to first input
+    ADMUX |= channels[0];
+}
+
+void initTimer( void ){
+    TCCR0A |= _BV(WGM01);
+
+    TCCR0B |= _BV(CS02) | _BV(CS00);
+
+    TIMSK0 |= _BV(OCIE0A);
+    OCR0A = 100;
+}
+
+
+ISR(TIMER0_COMPA_vect){
+    uint16_t thrott1;
+    uint16_t thrott2;
+    uint8_t msg[4];
+    //PORTC |= _BV(PC5) | _BV(PC4);
+    
+    ADMUX &= ~(0x1F);
+    ADMUX |= channels[0];
+    ADCSRA |= _BV(ADSC);
+    while(bit_is_set(ADCSRA, ADSC));
+    thrott1 = ADC;
+    
+    ADMUX &= ~(0x1F);
+    ADMUX |= channels[1];
+    ADCSRA |= _BV(ADSC);
+    while(bit_is_set(ADCSRA, ADSC));
+    thrott2 = ADC;
+
+    msg[0] = 0x00; // stnd
+    msg[1] = PINC & _BV(PC0); // brake
+    msg[2] = (uint8_t) (thrott1 >> 2);
+    msg[3] = (uint8_t) (thrott2 >> 2);
+
+    //loop_until_bit_is_clear(CANGSTA, TXBSY);
+    CAN_Tx(0, IDT_THROTTLE, IDT_THROTTLE_L, msg);
+
+    //PORTC &= ~(_BV(PC5) | _BV(PC4));
+
+    //wdt_reset();
+}
+
+ISR(CAN_INT_vect){
+
+}
+
 
 int main(void){
-    uint8_t err=0; 
-    uint16_t reading = 0;
-    uint8_t msg; 
+    sei(); // Enable interrupts
 
-    // Get us some error lights
-    // PC4 = Blue; PC5 = Green
-    DDRC |= _BV(PC5) | _BV(PC4); 
+    initIO();
+    handleBoot();
+    initTimer();
+    initADC();
 
-    sei();
-    CAN_init(1);
-    loop_until_bit_is_set(CANGSTA, ENFG);
+    //wdt_enable(WDTO_500MS);
 
-    //Enable ADC, set prescalar to 128 (slow down ADC clock)
-    ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
-    ADCSRB &= ~_BV(AREFEN);
-    ADMUX |= _BV(REFS0) | _BV(REFS1);
+    CAN_init(0);
 
-
-    // Set ADMUX channel
-    //ADMUX |= _BV( 0x00 );
-    ADMUX &= ~( 0b11111 );
-    ADMUX |= 4;
-
-    //err = CAN_Rx(1, IDT_demo, IDT_demo_l, IDM_single);
-    if( err > 0 ){
-        log_error(4);
-    }
-
-    msg = 85;
-    _delay_ms(1000);
-    //err = CAN_Tx(3, IDT_throttle, IDT_throttle_l, &msg );
-    //if( err > 0 ){ log_error(7); }
     for(;;){
-        //PORTC ^= _BV(PC4) | _BV(PC5);
-        //_delay_ms(500);
-        /*
-        //Read from ADC
-        ADCSRA |=  _BV(ADSC);
-
-        //Wait for ADC reading
-        //while(bit_is_set(ADCSRA, ADSC));
-        loop_until_bit_is_clear(ADCSRA, ADSC);
-        reading = ADC;
-
-        // Downsample to 8 bit
-        msg = (uint8_t)(reading >> 2);
-
-        loop_until_bit_is_clear(CANEN2, 3);
-        err = CAN_Tx(3, IDT_throttle, IDT_throttle_l, &msg );
-        if( err > 0 ){
-            log_error(7+i);
-        }
-        i++;
-        */
     }
 }

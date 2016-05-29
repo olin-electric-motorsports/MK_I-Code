@@ -12,16 +12,17 @@
 
 /* Message IDs */
 #define IDT_GLOBAL         ((uint8_t) 0x00)
-#define IDT_BMS_0          ((uint8_t) 0x01)
-#define IDT_BMS_1          ((uint8_t) 0x02)
-#define IDT_BMS_2          ((uint8_t) 0x03)
-#define IDT_BMS_3          ((uint8_t) 0x04)
+#define IDT_BMS_1          ((uint8_t) 0x01)
+#define IDT_BMS_2          ((uint8_t) 0x02)
+#define IDT_BMS_3          ((uint8_t) 0x03)
+#define IDT_BMS_4          ((uint8_t) 0x04)
 #define IDT_PANEL_BOARD    ((uint8_t) 0x05)
 #define IDT_AIR_CONTROL    ((uint8_t) 0x06)
 #define IDT_MCC            ((uint8_t) 0x07)
 #define IDT_DASHBOARD      ((uint8_t) 0x08)
 #define IDT_THROTTLE       ((uint8_t) 0x09)
-#define IDT_DEMO           ((uint8_t) 0x10)
+#define IDT_CHARGER        ((uint8_t) 0x10)
+#define IDT_DEMO           ((uint8_t) 0x11)
 
 /* Message Lengths */
 #define IDT_GLOBAL_L       ((uint8_t) 0x08)
@@ -30,7 +31,8 @@
 #define IDT_AIR_CONTROL_L  ((uint8_t) 0x02)
 #define IDT_MCC_L          ((uint8_t) 0x02)
 #define IDT_DASHBOARD_L    ((uint8_t) 0x02)
-#define IDT_THROTTLE_L     ((uint8_t) 0x02)
+#define IDT_THROTTLE_L     ((uint8_t) 0x04)
+#define IDT_CHARGER_L      ((uint8_t) 0x02)
 #define IDT_DEMO_L         ((uint8_t) 0x02)
 
 /* Masks */
@@ -38,7 +40,7 @@
 #define IDM_single         ((uint8_t) 0xff)
 
 /* Function Prototypes */
-uint8_t CAN_init( uint8_t interrupt_depth );
+uint8_t CAN_init( uint8_t interrupt_depth, uint8_t listen );
 
 uint8_t CAN_Tx  ( uint8_t mob, uint8_t ident, uint8_t msg_length, uint8_t msg[]);
 
@@ -69,7 +71,7 @@ Bulkhead:
 
 
 Dashboard:
-    Standard/hello||startup
+    Standard/standby||startup
     0x00/0x00||0xff
 
 
@@ -105,8 +107,8 @@ BMS[1-4]:
 
 
 Charger: (Global Watchdog Spoofer)
-    Standard/hello!
-    0x00/0x00
+    Standard/Charging?
+    0x00/0x00||0x01
 
 */
 

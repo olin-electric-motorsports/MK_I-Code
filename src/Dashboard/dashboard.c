@@ -17,6 +17,12 @@ void initIO(void){
     DDRD &= ~_BV(PD5); // PCINT21  2
     DDRD &= ~_BV(PD6); // PCINT22  2
 
+    // Dashboard lights
+    DDRD |= _BV(PD4);  // IMD status
+    DDRE |= _BV(PE0);  // AMS status
+    PORTD &= ~_BV(PD4);
+    PORTE &= ~_BV(PE0);
+
     // MultiSwitch
     DDRB &= ~_BV(PB1); // PCINT1   0
     DDRE &= ~_BV(PE1); // PCINT25  3
@@ -65,6 +71,13 @@ void initTimer( void ){
     // Interrupt on compare to OCR0A
     TIMSK0 |= _BV(OCIE0A);
     OCR0A = 100;
+}
+
+
+uint8_t convertVoltageToTemperature( uint8_t voltage ){
+    // Convert BMS Temperature reading into human readable temperature
+    float x = ((float)(voltage))/256 * 5;
+    return (uint8_t)(-3.588*x*x*x + 27.7*x*x - 85.687*x + 121.88);
 }
 
 ISR(PCINT0_vect){
@@ -120,7 +133,8 @@ ISR(PCINT3_vect){
 }
 
 ISR(TIMER0_COMPA_vect){
-    lcd_clrscr();
+    //lcd_clrscr();
+    /*
     // Que ADC reading
     ADCSRA |= _BV(ADSC);
     // Wait for ADC to finish
@@ -131,28 +145,73 @@ ISR(TIMER0_COMPA_vect){
     sprintf(output, "%d", reading);
 
     lcd_puts(output);
+    */
+}
+
+ISR(CAN_INT_vect){
+    uint8_t msg, msg2, msg3;
+    char buffer[12];
+    if( bit_is_set(CANSIT2, 0)){
+        //lcd_clrscr();
+        lcd_home();
+
+        CANPAGE = 0x00;
+        CANPAGE = 0 << MOBNB0;
+        msg = CANMSG;
+        msg2 = CANMSG;
+        msg = CANMSG;
+        msg3 = CANMSG;
+        sprintf(buffer, "%d %d    %d", msg2, msg, msg3);
+
+        lcd_puts(buffer);
+        CANSTMOB = 0x00;
+        loop_until_bit_is_clear(CANEN2, 0);
+        CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
+    } else if( bit_is_set(CANSIT2, 1)){
+        //lcd_clrscr();
+        lcd_home();
+
+        CANPAGE = 0x00;
+        CANPAGE = 1 << MOBNB0;
+        msg = CANMSG;
+        msg = CANMSG;
+        msg = convertVoltageToTemperature(CANMSG);
+        msg2= convertVoltageToTemperature(CANMSG);
+        msg3= convertVoltageToTemperature(CANMSG);
+        sprintf(buffer, "%d %d %d", msg, msg2, msg3);
+        lcd_puts(buffer);
+        CANSTMOB = 0x00;
+        loop_until_bit_is_clear(CANEN2, 0);
+        //CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
+    } else if( bit_is_set(CANSIT, 2)){
+        lcd_gotoxy(0, 1);
+        lcd_puts("Charging");
+    }
 }
 
 int main(void){
     DDRB |= _BV(PB7) | _BV(PB6);
 
     sei();
-    _delay_ms(1000);
-    //lcd_init(LCD_DISP_ON_CURSOR_BLINK);
-    lcd_init(LCD_DISP_ON);
-    _delay_ms(100);
-    lcd_clrscr();
 
     _delay_ms(100);
     
-    lcd_puts("Hello");
+    //lcd_puts("Hello");
     initIO();
     //initInterrupts();
-    //initADC();
-    //initTimer();
+    CAN_init(0);
+    CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
+    CAN_Rx(1, IDT_BMS_2, IDT_BMS_L, IDM_single);
+    CAN_Rx(2, IDT_CHARGER, IDT_CHARGER_L, IDM_single);
 
+    //lcd_init(LCD_DISP_ON);
+    lcd_init(LCD_DISP_ON_CURSOR_BLINK);
+    lcd_clrscr();
+    //initADC();
+    initTimer();
+    lcd_puts("Ready to go!\n");
+
+    lcd_clrscr();
     for(;;){
-        //PORTB ^= _BV(PB7) | _BV(PB6);
-        //_delay_ms(500);
     }
 }

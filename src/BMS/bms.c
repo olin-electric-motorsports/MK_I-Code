@@ -5,33 +5,41 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 
-//#define MAXV ((uint16_t) (4.2/5.0 * 0x3ff))
-/* 0x01 */
-//#define MAXV ((uint16_t) (4.10/4.64 * 0x3ff))
-//#define MINV ((uint16_t) (3.0/4.64 * 0x3ff))
 
-/* 0x02 Flavianus */
+/* Change this per BMS */
+#define IDT_BMS IDT_BMS_1
+
+/* MIN/MAX */
 #define MAXV ((uint16_t) (4.15/5 * 0x3ff))
-#define MINV ((uint16_t) (3.0/5 * 0x3ff))
+#define MINV ((uint16_t) (2.75/5 * 0x3ff))
 
 // Max temperature
-#define MAXTEMP ((uint16_t) (1.1/4.97 * 0x3ff))
+#define MAXTEMP ((uint16_t) (1.1/5 * 0x3ff))
+#define MINTEMP ((uint16_t) (4.5/5 * 0x3ff))
 
-// CAN
-#define MObUpdate 0
-#define MObError 1
+// Status of BMS
+#define NORMAL      ((uint8_t) 0 )
+#define LOW_VOLTAGE ((uint8_t) 1 )
+#define LOW_TEMP    ((uint8_t) 2 )
+#define HIGH_TEMP   ((uint8_t) 3 )
+#define CHARGING    ((uint8_t) 4 )
 
 // Global constants
 const uint8_t inputs[] = { 8, 5, 9, 3, 0, 2}; // 9 is breaking
-const uint8_t temp[] = {10, 6, 7, 4};
+const uint8_t temp[] = {6, 7, 4};
 const uint8_t outputs[] = { _BV(PB3), _BV(PB4),
                             _BV(PC7), _BV(PD0),
                             _BV(PC0), _BV(PD1) };
 
-// Global variable
+// Global variables
 uint8_t shunt[] = { 0, 0, 0, 0, 0, 0 };
-uint8_t shunt_status = 0;
 
+//Standard/Shunt/temp1/temp2/temp3/tempInternal/Vavg/Vstd
+//0x00/0x00~0x3f/0x00~0xff/0x00~0xff/0x00~0xff/0x00~0xff/0x00~0xff/0x00~0xff
+uint8_t gMessage[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+uint8_t global_status = NORMAL;
+
+uint8_t gAutoReset = 0x00;
 
 uint16_t readADC( uint8_t channel, uint8_t channel_next ){
     // Set channel if not set correctly beforehand
@@ -86,8 +94,8 @@ void handleBoot( void ){
 void initIO( void ){
     // Debug lights 
     DDRE |= _BV(PE1); // Light 1 SHUNT
-    DDRB |= _BV(PB1); // Light 2 STATE 
-    DDRD |= _BV(PD7); // Light 3 
+    DDRB |= _BV(PB1); // Light 2 ADC READING
+    DDRD |= _BV(PD7); // Light 3 ERRORS
 
     // Outputs
     DDRB |= _BV(PB3); // Output 1
@@ -99,7 +107,8 @@ void initIO( void ){
 
     // Shutdown Circuit
     DDRB |= _BV(PB0);
-    PORTB |= _BV(PB0);
+    PORTB &= ~_BV(PB0);
+    //PORTB |= _BV(PB0);// Don't enable by default
 
     // Disable Shunt
     PORTB &= ~( _BV(PB3) | _BV(PB4) );
@@ -115,7 +124,7 @@ void initIO( void ){
     DDRD &= ~_BV(PD5); // Input 6, ADC2
 
     // Temperature
-    DDRC &= ~_BV(PC6); // Temp 1, ADC10
+    //DDRC &= ~_BV(PC6); // Temp 1, ADC10
     DDRB &= ~_BV(PB5); // Temp 2, ADC6
     DDRB &= ~_BV(PB6); // Temp 3, ADC7
     DDRB &= ~_BV(PB7); // Temp 4, ADC4
@@ -163,15 +172,16 @@ void checkCellVoltages( void ){
         voltage = readADC(inputs[ch], inputs[((ch+1)%6)]);
         if( voltage >= MAXV ){
             shunt[ch] = 1;
-            shunt_status |= _BV(ch);
+            gMessage[1] |= _BV(ch);
         } else if( voltage <= MINV ){
             PORTB &= ~_BV(PB0);
+            global_status = LOW_VOLTAGE;
             /* TODO: ENABLE
             CAN_Tx(MObError, IDT_BMS, IDT_BMS_l, ERR_UNDERVOLT);
             */
         } else {
             shunt[ch] = 0;
-            shunt_status &= ~_BV(ch);
+            gMessage[1] &= ~_BV(ch);
         }
     }
 }
@@ -180,12 +190,19 @@ void checkCellVoltages( void ){
 void checkTemperatures( void ){
     uint8_t ch;
     uint16_t voltage;
+    uint8_t voltage_8bit;
 
-    for( ch=0; ch < 4; ch++ ){
+    for( ch=0; ch < 3; ch++ ){
         voltage = readADC( temp[ch], temp[((ch+1)%4)] );
+        voltage_8bit = (uint8_t )(voltage >> 2);
+        gMessage[2+ch] = voltage_8bit;
+
         if( voltage <= MAXTEMP ){
             PORTB &= ~_BV(PB0);
-            PORTD |= _BV(PD7);
+            global_status = HIGH_TEMP;
+        } else if (voltage >= MINTEMP ){
+            PORTB &= ~_BV(PB0);
+            global_status = LOW_TEMP;
         }
     }
 }
@@ -209,6 +226,20 @@ void handleShunt( void ){
 
 
 ISR(CAN_INT_vect){
+    PORTE |= _BV(PE1);
+    if( bit_is_set( CANSIT2, 1 )){
+        CANSTMOB = 0x00;
+        gAutoReset = 0;
+        global_status = CHARGING;
+        PORTB |= _BV(PB0);
+    } else if ( bit_is_set( CANSIT2, 2)){
+        CANSTMOB = 0x00;
+        PORTB |= _BV(PB0);
+       // CANPAGE = 2 << MOBNB0;
+    }
+    PORTE &= ~_BV(PE1);
+            
+    /*
     if( bit_is_set( CANSIT2, MObUpdate )){
         // Select correct MOb
         CANPAGE = MObUpdate << MOBNB0;
@@ -224,6 +255,17 @@ ISR(CAN_INT_vect){
 
     // Don't handle any other interrupts
     // TODO: Auto-CAN restart
+    */
+}
+
+void handleState( uint8_t timerCounter ){
+    if( timerCounter % 2 == 0 ){
+        PORTD &= ~_BV(PD7);
+    } else if ( timerCounter < (2*global_status) ){
+        PORTD |= _BV(PD7);
+    }
+
+    return;
 }
 
 
@@ -231,7 +273,20 @@ ISR(TIMER0_COMPA_vect){
     static uint8_t timerCounter;
     timerCounter++;
 
-    if( timerCounter == 4){
+    handleState(timerCounter);
+
+    if( timerCounter == 3){
+        if( global_status == CHARGING ){
+            gAutoReset++;
+            if( gAutoReset > 5 ){
+                gAutoReset = 0;
+                /*
+                PORTB &= ~_BV(PB0);
+                global_status = NORMAL;
+                */
+            }
+        }
+    } else if( timerCounter == 4){
         checkTemperatures();
     } else if( timerCounter == 9 ){
 
@@ -254,10 +309,9 @@ ISR(TIMER0_COMPA_vect){
 
         // Send CAN message on shunting status
         // Fails silently right now
-        /*
-        CAN_Tx(MObUpdate, IDT_BMS, IDT_BMS_l, shunt_status);
-        */
+        //CAN_Tx(0, IDT_BMS, IDT_BMS_L, gMessage);
     }
+
 
     // "Kick the dog"
     wdt_reset();
@@ -271,18 +325,21 @@ int main( void ){
     handleBoot();
     initTimer();
     initADC();
+    
+    CAN_init(0, 1);
+    CAN_Rx(1, IDT_CHARGER, IDT_CHARGER_L, IDM_single);
+    //CAN_Rx(2, IDT_DASHBOARD, IDT_DASHBOARD_L, IDM_single);
 
     // Enable Watchdog timer
     // Timout after 500ms
     wdt_enable(WDTO_500MS);
 
     // Start up CAN
-    CAN_init(1);
+    //CAN_init(1);
 
     for(;;){
         /* Everything is handled by a timer */
     }
     return 1;
 }
-
 
