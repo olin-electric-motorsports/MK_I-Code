@@ -35,7 +35,7 @@ void initInterrupts( void ){
 
 void initTimer( void ){
     // 8 bit timer
-    OCR0B = 100;
+    OCR0B = 0;
     TCCR0A |= _BV(WGM00);
     TCCR0A &= ~(_BV(WGM01));
 
@@ -46,14 +46,15 @@ void initTimer( void ){
     TCCR0B &= ~(_BV(CS02) | _BV(CS01));
 
     // 16 bit timer
-    OCR1BL = 100;
+    /*
+    OCR1BL = 0;
     TCCR1A |= _BV(WGM10);
     TCCR1A &= ~(_BV(WGM11));
     TCCR1A |= _BV(COM1B1);
     TCCR1A &= ~(_BV(COM1B0));
     TCCR1B |= _BV(CS10);
     TCCR1B &= ~(_BV(CS12) | _BV(CS11));
-
+    */
 }
 
 
@@ -69,18 +70,38 @@ ISR(PCINT0_vect){
 }
 
 ISR(CAN_INT_vect){
-    uint8_t msg;
-    if( bit_is_set(CANSIT, 0) ){
+    volatile uint8_t msg;
+
+    if( bit_is_set(CANSIT2, 0) ){
+        CANPAGE = 0x00;
         CANPAGE = 0 << MOBNB0;
-        CANSTMOB = 0x00;
 
         msg = CANMSG;
         msg = CANMSG;
         if( msg == 1 ){
+            //PORTC |= _BV(PC4);
             PORTC |= _BV(PC7);
         } else {
             PORTC &= ~_BV(PC7);
         }
+        msg = CANMSG;
+        if (msg > 0)
+        {
+            PORTB |= _BV(PB2);
+            PORTD |= _BV(PD7);
+        }
+        else
+        {
+            PORTB &= ~_BV(PB2);
+            PORTD &= ~_BV(PD7);
+        }
+        OCR0B = msg;
+
+
+        CANSTMOB = 0x00;
+        loop_until_bit_is_clear(CANEN2, 0);
+
+        CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
     }
     /*
     //receives a can message containing the value of the amplitude. 
@@ -101,20 +122,23 @@ ISR(CAN_INT_vect){
 //get can message from throttle
 int main(void){
     //initializing things
-    CAN_init(0, 1);
-    CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
     
     sei();
     initIO();
     initInterrupts();
     initTimer();
 
+    CAN_init(0, 1);
+    CAN_Rx(0, IDT_THROTTLE, IDT_THROTTLE_L, IDM_single);
+
+
+    //PORTC |= _BV(PC4);
     for(;;){
-        
-        PORTB ^= _BV(PB2);
-        PORTD ^= _BV(PD7);
-        PORTC ^= _BV(PC4);
-        _delay_ms(500);
+        //PORTB ^= _BV(PB2);
+        //PORTD ^= _BV(PD7);
+        //PORTC ^= _BV(PC4);
+        //PORTC ^= _BV(PC7);
+        //_delay_ms(500);
     }
 
     /*

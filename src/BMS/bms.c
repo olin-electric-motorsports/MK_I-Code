@@ -6,12 +6,14 @@
 #include <util/delay.h>
 
 
+#define FUCKITY_CLOCK // Only enable if BMS 1
+
 /* Change this per BMS */
 #define IDT_BMS IDT_BMS_1
 
 /* MIN/MAX */
 #define MAXV ((uint16_t) (4.15/5 * 0x3ff))
-#define MINV ((uint16_t) (2.75/5 * 0x3ff))
+#define MINV ((uint16_t) (3.00/5 * 0x3ff))
 
 // Max temperature
 #define MAXTEMP ((uint16_t) (1.1/5 * 0x3ff))
@@ -228,14 +230,22 @@ void handleShunt( void ){
 ISR(CAN_INT_vect){
     PORTE |= _BV(PE1);
     if( bit_is_set( CANSIT2, 1 )){
-        CANSTMOB = 0x00;
+        CANPAGE = 0x00;
+        CANPAGE = 1 << MOBNB0;
+
         gAutoReset = 0;
         global_status = CHARGING;
         PORTB |= _BV(PB0);
-    } else if ( bit_is_set( CANSIT2, 2)){
+
         CANSTMOB = 0x00;
+    } else if ( bit_is_set( CANSIT2, 2)){
+        CANPAGE = 0x00;
+        CANPAGE = 2 << MOBNB0;
+
         PORTB |= _BV(PB0);
        // CANPAGE = 2 << MOBNB0;
+       //
+        CANSTMOB = 0x00;
     }
     PORTE &= ~_BV(PE1);
             
@@ -280,7 +290,7 @@ ISR(TIMER0_COMPA_vect){
             gAutoReset++;
             if( gAutoReset > 5 ){
                 gAutoReset = 0;
-                /*
+                /* TODO: Remove this as commented
                 PORTB &= ~_BV(PB0);
                 global_status = NORMAL;
                 */
@@ -319,6 +329,10 @@ ISR(TIMER0_COMPA_vect){
 
 
 int main( void ){
+#ifdef FUCKITY_CLOCK
+    OSCCAL = 0x5d;
+#endif
+
     sei(); // enable interrupts
 
     initIO();
@@ -328,18 +342,16 @@ int main( void ){
     
     CAN_init(0, 1);
     CAN_Rx(1, IDT_CHARGER, IDT_CHARGER_L, IDM_single);
-    //CAN_Rx(2, IDT_DASHBOARD, IDT_DASHBOARD_L, IDM_single);
+    CAN_Rx(2, IDT_DASHBOARD, IDT_DASHBOARD_L, IDM_single);
 
     // Enable Watchdog timer
     // Timout after 500ms
     wdt_enable(WDTO_500MS);
 
-    // Start up CAN
-    //CAN_init(1);
-
     for(;;){
         /* Everything is handled by a timer */
     }
+
     return 1;
 }
 
