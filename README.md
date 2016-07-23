@@ -1,3 +1,8 @@
+# Legacy Repository
+This repository is no longer being used, as the MK I is no longer being worked on. Use it as a reference, but refrain from pushing code or making pull-requests. Raising issues about how certain things are done is fine, because that can be used constructively in the future. Making pull-requests with comments to make the code more understandable is also fine.
+
+Also do note that there are a lot of really shitty things done in terms of code. The style is not consistent and honestly there is a lot of stuff that should have never been allowed to be done. Like I say, it's a learning experience.
+
 # CAN Nodes and API 2015-2016
 This repository contains all the CAN programming for the 2015-2016 school year.
 
